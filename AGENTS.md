@@ -42,6 +42,8 @@ them as features):
   `XDG_DATA_HOME` are pinned to the real values so opencode keeps its config.
 - opencode binds `127.0.0.1` only; exposure is exclusively via
   `tailscale serve --bg --https=<port> localhost:<port>`.
+- opencode v2 always generates a server password (it cannot be disabled);
+  `ocs` surfaces it from the instance log at startup (`код: …`).
 - ttyd (`ocs term`) is deliberately password-less: `-c user:pass` breaks the
   WebSocket upgrade (browsers don't send Basic Auth on WS handshake). On
   macOS/BSD `-i lo0` is required to avoid colliding with tailscaled on an

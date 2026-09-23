@@ -163,6 +163,15 @@ start() {
   printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$REG"
   rm -f "$REG.pid"
   echo "→ https://$(host):$p"
+
+  # opencode v2 генерує пароль сервера сам і пише його в лог — показуємо його
+  local code i
+  for i in 1 2 3 4 5; do
+    code="$(sed -n 's/^server password //p' "$dir/.ocs.log" 2>/dev/null | tail -1)"
+    [ -n "$code" ] && break
+    sleep 1
+  done
+  [ -n "$code" ] && echo "  код: $code"
 }
 
 term() {

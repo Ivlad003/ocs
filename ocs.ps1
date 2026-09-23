@@ -242,9 +242,18 @@ function Start-Instance {
   Start-Sleep -Seconds 1
   if ($proc.HasExited) { Get-Content $log -Tail 20; throw 'opencode не піднявся' }
 
+  # opencode v2 генерує пароль сервера сам і пише його в лог — показуємо його
+  $codeLine = $null
+  foreach ($i in 1..5) {
+    $codeLine = Select-String -Path $log -Pattern '^server password ' -ErrorAction SilentlyContinue | Select-Object -Last 1
+    if ($codeLine) { break }
+    Start-Sleep -Seconds 1
+  }
+
   & (Get-Ts) serve --bg --https=$port "localhost:$port" | Out-Null
   Add-Content $Reg "$port`t$($proc.Id)`t$dir"
   "→ https://$(Get-TsHost):$port"
+  if ($codeLine) { '  код: ' + $codeLine.Line.Substring('server password '.Length) }
 }
 
 function Start-Term([int]$FontSize, [int]$Port) {
