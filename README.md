@@ -137,8 +137,13 @@ Windows specifics:
   Administrator, otherwise publishing fails
 - `HOME` and `USERPROFILE` are both overridden, since that is what the
   project picker follows on Windows
-- `ocs term` runs `pwsh` directly instead of `tmux`, so the session does not
-  survive a reload; install ttyd with `scoop install ttyd`
+- `ocs term` works: ttyd has had native Windows support since 1.7.0 (ConPTY,
+  Windows 10+). Install it with `scoop install ttyd`. It runs `pwsh` instead
+  of `tmux`, so the session does not survive a browser reload — run long jobs
+  as detached processes (`Start-Process -WindowStyle Hidden`) or a Scheduled
+  Task instead of keeping them in the shell
+- on Windows ttyd binds `0.0.0.0` and has no `-i lo0` equivalent, so `ocs
+  term` publishes the terminal on a **different** port than ttyd listens on
 
 ## Minimal alternative
 

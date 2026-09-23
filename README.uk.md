@@ -134,8 +134,13 @@ function ocs { & "$HOME\Documents\pet_project\ocs\ocs.ps1" @args }
   імені адміністратора, інакше публікація впаде
 - підміняються і `HOME`, і `USERPROFILE` — на Windows пікер проєктів іде
   саме за другим
-- `ocs term` запускає `pwsh` напряму замість `tmux`, тож сесія не переживає
-  перезавантаження вкладки; ttyd ставиться через `scoop install ttyd`
+- `ocs term` працює: ttyd має нативну підтримку Windows з версії 1.7.0
+  (ConPTY, Windows 10+), ставиться через `scoop install ttyd`. Запускає
+  `pwsh` замість `tmux`, тож сесія не переживає перезавантаження вкладки —
+  довгі задачі краще запускати відчепленими процесами
+  (`Start-Process -WindowStyle Hidden`) або через Task Scheduler
+- на Windows ttyd біндиться на `0.0.0.0` і не має аналога `-i lo0`, тому
+  `ocs term` публікує термінал на **іншому** порту, ніж слухає ttyd
 
 ## Мінімальна альтернатива
 

@@ -124,6 +124,9 @@ function Start-Term([int]$FontSize, [int]$Port) {
     throw 'ttyd не знайдено — scoop install ttyd, або бінарник з github.com/tsl0922/ttyd/releases'
   }
   $p = Get-FreePort $Port
+  # ttyd на Windows біндиться на 0.0.0.0 і не вміє -i lo0, тому публічний
+  # порт беремо інший — інакше конфлікт із tailscaled за той самий порт
+  $servePort = Get-FreePort ($p + 100)
   $log = Join-Path $LogDir "ttyd-$p.log"
 
   # без -c: Basic Auth ламає websocket-апгрейд, периметр — тайнет
@@ -135,9 +138,9 @@ function Start-Term([int]$FontSize, [int]$Port) {
   Start-Sleep -Seconds 1
   if ($proc.HasExited) { Get-Content $log -Tail 10; throw 'ttyd не піднявся' }
 
-  & (Get-Ts) serve --bg --https=$p "localhost:$p" | Out-Null
-  Add-Content $Reg "$p`t$($proc.Id)`tttyd"
-  "→ https://$(Get-TsHost):$p  (шрифт $FontSize)"
+  & (Get-Ts) serve --bg --https=$servePort "localhost:$p" | Out-Null
+  Add-Content $Reg "$servePort`t$($proc.Id)`tttyd"
+  "→ https://$(Get-TsHost):$servePort  (шрифт $FontSize)"
 }
 
 function Show-List {
