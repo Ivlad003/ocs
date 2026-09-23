@@ -1,9 +1,9 @@
 # AGENTS.md
 
-Bash + PowerShell CLI that serves `opencode web` instances and publishes them
-in a Tailscale tailnet. No build system, no tests, no package manifests — the
-two scripts *are* the product. Docs: `README.md` (EN, primary) and
-`README.uk.md`.
+Bash + PowerShell CLI that serves the opencode web UI on several ports and
+publishes them in a Tailscale tailnet. No build system, no tests, no CI, no
+package manifests — the two scripts *are* the product, and changes are pushed
+straight to `origin/main`. Docs: `README.md` (EN, primary) and `README.uk.md`.
 
 ## Entry points
 
@@ -42,10 +42,15 @@ them as features):
   `XDG_DATA_HOME` are pinned to the real values so opencode keeps its config.
 - opencode binds `127.0.0.1` only; exposure is exclusively via
   `tailscale serve --bg --https=<port> localhost:<port>`.
-- opencode v2 always generates a server password (it cannot be disabled);
-  `ocs` surfaces it from the instance log at startup (`код: …`) and prints a
-  one-click `/connect#…` link (same format as `opencode pair`) plus a QR code
-  of it when `qrencode` is installed.
+- opencode v2 always generates a server password — it **cannot be disabled**
+  (empty env just triggers a fresh random one). `ocs` reads the
+  `server password …` line from the instance log (retry up to 5 s) and prints
+  `код: …`, plus a one-click login link `…/connect#<payload>` where `<payload>`
+  is unpadded base64url of `{"urls":["https://host:port"],"username":"opencode","password":"…"}`
+  — the exact format the web UI and `opencode pair` use. The QR codes that
+  `start`, `expose`, and `term` print encode that link (`start`) or the plain
+  URL (`expose`/`term` — no auth there). Don't "simplify" the payload shape;
+  it was reverse-engineered from the web bundle.
 - ttyd (`ocs term`) is deliberately password-less: `-c user:pass` breaks the
   WebSocket upgrade (browsers don't send Basic Auth on WS handshake). On
   macOS/BSD `-i lo0` is required to avoid colliding with tailscaled on an
@@ -55,11 +60,15 @@ them as features):
 ## Verifying changes
 
 - `bash -n ocs` for syntax (shellcheck is not installed here).
+- `pwsh` is also not installed here — `ocs.ps1` edits cannot be syntax-checked
+  locally; keep them minimal and test on Windows.
 - The Bash script runs `command -v tailscale` *before* dispatch, so even
   `ocs help` requires `tailscale` on PATH; `stop` additionally uses `lsof`.
 - Functional testing needs `tailscale` (logged into a tailnet with HTTPS
   enabled) and `opencode` installed; `ocs term` also needs `ttyd`. The scripts
   print install instructions for missing deps instead of failing bare.
+- `qrencode` (optional) turns on QR output. Bash prints an install hint when
+  it is missing; pwsh silently skips — that asymmetry is deliberate, not a bug.
 - README command lists (both languages) must stay in sync with `usage()` /
   `Show-Usage` — the "full command list" in the README header is a maintained
   feature.
