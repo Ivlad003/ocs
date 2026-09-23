@@ -49,6 +49,9 @@ missing() {
       echo "tailscale не знайдено в PATH." >&2; echo >&2
       if [ "$os" = Darwin ]; then
         echo "  встановити:  brew install --cask tailscale" >&2
+        echo "  далі:        tailscale up" >&2
+        command -v brew >/dev/null 2>&1 || \
+          echo '  немає brew:  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' >&2
       else
         echo "  встановити:  curl -fsSL https://tailscale.com/install.sh | sh" >&2
       fi
@@ -60,6 +63,7 @@ missing() {
       echo "ttyd не знайдено в PATH." >&2; echo >&2
       if [ "$os" = Darwin ]; then
         echo "  встановити:  brew install ttyd" >&2
+        echo "  перевірити:  ttyd --version" >&2
       else
         echo "  встановити:  sudo apt install ttyd   (або збірка з джерел)" >&2
       fi

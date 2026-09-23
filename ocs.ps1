@@ -23,32 +23,64 @@ if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Forc
 function Show-Missing([string]$Tool) {
   Write-Host ''
   switch ($Tool) {
+
     'opencode' {
       Write-Host 'opencode не знайдено в PATH.' -ForegroundColor Red
       Write-Host ''
-      Write-Host '  встановити:  npm i -g opencode-ai'
-      Write-Host '  сайт:        https://opencode.ai'
+      Write-Host '  1) Node.js, якщо ще немає:'
+      Write-Host '       winget install OpenJS.NodeJS.LTS'
+      Write-Host '     перевірити:  node --version'
+      Write-Host ''
+      Write-Host '  2) opencode:'
+      Write-Host '       npm install -g opencode-ai'
+      Write-Host '     перевірити:  opencode --version'
+      Write-Host ''
+      Write-Host '  Якщо після встановлення команду не видно — перезапусти термінал,'
+      Write-Host '  npm-глобальні пакети лягають у %APPDATA%\npm.'
+      Write-Host ''
+      Write-Host '  сайт:  https://opencode.ai'
     }
+
     'tailscale' {
       Write-Host 'tailscale не знайдено в PATH.' -ForegroundColor Red
       Write-Host ''
-      Write-Host '  встановити:  winget install tailscale.tailscale'
-      Write-Host '  завантажити: https://tailscale.com/download/windows'
-      Write-Host '  сайт:        https://tailscale.com'
+      Write-Host '  1) встановити:'
+      Write-Host '       winget install tailscale.tailscale'
+      Write-Host '     або завантажити:  https://tailscale.com/download/windows'
       Write-Host ''
-      Write-Host '  Після встановлення увімкни HTTPS:'
-      Write-Host '  https://login.tailscale.com/admin/dns → Enable HTTPS'
+      Write-Host '  2) увійти:'
+      Write-Host '       tailscale up'
       Write-Host ''
-      Write-Host '  tailscale serve потребує запуску PowerShell від адміністратора.'
+      Write-Host '  3) увімкнути HTTPS в адмінці (одноразово на весь тайнет):'
+      Write-Host '       https://login.tailscale.com/admin/dns'
+      Write-Host '       MagicDNS → увімкнути, нижче кнопка Enable HTTPS'
+      Write-Host ''
+      Write-Host '  ВАЖЛИВО: tailscale serve на Windows працює лише з PowerShell,' -ForegroundColor Yellow
+      Write-Host '  запущеного від імені адміністратора.' -ForegroundColor Yellow
+      Write-Host ''
+      Write-Host '  Якщо команду не видно після встановлення, вона лежить тут:'
+      Write-Host '       C:\Program Files\Tailscale\tailscale.exe'
+      Write-Host ''
+      Write-Host '  сайт:  https://tailscale.com'
     }
+
     'ttyd' {
       Write-Host 'ttyd не знайдено в PATH.' -ForegroundColor Red
       Write-Host ''
-      Write-Host '  встановити:  scoop install ttyd'
-      Write-Host '  релізи:      https://github.com/tsl0922/ttyd/releases'
-      Write-Host '  доки:        https://tsl0922.github.io/ttyd/'
+      Write-Host '  1) scoop, якщо ще немає:'
+      Write-Host '       Set-ExecutionPolicy -Scope CurrentUser RemoteSigned'
+      Write-Host '       irm get.scoop.sh | iex'
       Write-Host ''
-      Write-Host '  Потрібен Windows 10+ (ConPTY).'
+      Write-Host '  2) ttyd:'
+      Write-Host '       scoop install ttyd'
+      Write-Host '     перевірити:  ttyd --version'
+      Write-Host ''
+      Write-Host '  Без scoop — бінарник з релізів, покласти в теку з PATH:'
+      Write-Host '       https://github.com/tsl0922/ttyd/releases'
+      Write-Host ''
+      Write-Host '  Потрібен Windows 10 або новіший: ttyd використовує ConPTY.'
+      Write-Host ''
+      Write-Host '  доки:  https://tsl0922.github.io/ttyd/'
     }
   }
   Write-Host ''
