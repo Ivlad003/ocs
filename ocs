@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# ocs — кілька opencode web на різних портах + публікація в tailnet
+
+set -eu
+
+ROOT="${OCS_ROOT:-$HOME/Documents}"   # де шукати проєкти
+PASS="${OCS_PASS:-}"                  # пароль на веб (порожній = без)
+REG="$HOME/.ocs"                      # реєстр запущеного
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
+DAT="${XDG_DATA_HOME:-$HOME/.local/share}"
+touch "$REG"
+
+usage() {
+  cat <<'TXT'
+ocs — кілька opencode web на різних портах + публікація в tailnet
+
+  ocs                   вибрати теку зі списку, вибрати порт, запустити
+  ocs ls                що працює зараз
+  ocs stop <порт|all>   зупинити інстанс
+  ocs expose <порт>     прокинути будь-який локальний порт у tailnet
+  ocs off <порт>        прибрати прокинутий порт
+  ocs help              ця довідка
+
+Змінні оточення:
+  OCS_ROOT   де шукати проєкти            (типово ~/Documents)
+  OCS_PASS   пароль на веб-інтерфейс      (типово без пароля)
+
+Приклад:
+  OCS_ROOT=~/Documents/pet_project ocs
+  ocs expose 8080        # Open WebUI, Olla тощо
+  ocs stop all
+TXT
+}
+
+host() { tailscale status --json | sed -n 's/.*"DNSName": *"\([^"]*\)\..*/\1/p' | head -1; }
+free() { ! lsof -i :"$1" >/dev/null 2>&1; }
+
+start() {
+  local dirs=() i=1 d
+  for d in "$ROOT"/*/; do [ -d "$d" ] && dirs+=("${d%/}"); done
+  [ ${#dirs[@]} -gt 0 ] || { echo "Порожньо в $ROOT"; exit 1; }
+  for d in "${dirs[@]}"; do echo "  $i) $(basename "$d")"; i=$((i+1)); done
+  printf 'Тека: '; read -r n
+  local dir="${dirs[$((n-1))]}"
+
+  local p=4096
+  while ! free "$p"; do p=$((p+1)); done
+  printf 'Порт [%s]: ' "$p"; read -r x; p="${x:-$p}"
+  free "$p" || { echo "Порт $p зайнятий"; exit 1; }
+
+  # HOME=$dir тримає пікер проєктів усередині теки, XDG_* лишають конфіг на місці
+  ( cd "$dir" && HOME="$dir" XDG_CONFIG_HOME="$CFG" XDG_DATA_HOME="$DAT" \
+      OPENCODE_SERVER_PASSWORD="$PASS" \
+      nohup opencode web --hostname 127.0.0.1 --port "$p" \
+      >"$dir/.ocs.log" 2>&1 & echo $! >"$REG.pid" )
+  sleep 1
+
+  tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
+  printf '%s\t%s\t%s\n' "$p" "$(cat "$REG.pid")" "$dir" >>"$REG"
+  rm -f "$REG.pid"
+  echo "→ https://$(host):$p"
+}
+
+ls_() {
+  local p pid dir
+  while IFS=$'\t' read -r p pid dir; do
+    [ -n "${p:-}" ] || continue
+    kill -0 "$pid" 2>/dev/null && echo "  $p  $(basename "$dir")  https://$(host):$p"
+  done <"$REG"
+  echo; tailscale serve status
+}
+
+stop() {
+  local key="$1" tmp p pid dir
+  tmp=$(mktemp)
+  while IFS=$'\t' read -r p pid dir; do
+    [ -n "${p:-}" ] || continue
+    if [ "$key" = all ] || [ "$key" = "$p" ]; then
+      kill "$pid" 2>/dev/null || true
+      tailscale serve --https="$p" off >/dev/null 2>&1 || true
+      echo "зупинено $p"
+    else
+      printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$tmp"
+    fi
+  done <"$REG"
+  mv "$tmp" "$REG"
+}
+
+case "${1:-start}" in
+  start)          start ;;
+  ls)             ls_ ;;
+  stop)           stop "${2:?потрібен порт або all}" ;;
+  expose)         tailscale serve --bg --https="${2:?потрібен порт}" "localhost:${2}" >/dev/null
+                  echo "→ https://$(host):${2}" ;;
+  off)            tailscale serve --https="${2:?потрібен порт}" off >/dev/null; echo "знято ${2}" ;;
+  help|-h|--help) usage ;;
+  *)              usage; exit 1 ;;
+esac
