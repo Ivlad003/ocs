@@ -168,6 +168,8 @@ ocs expose 7681
 - `-c user:pass` — Basic Auth
 - `-W` — обов'язковий: з версії 1.7 термінал без нього read-only
 - `tmux new -A -s main` — сесія переживає перезавантаження вкладки
+- пароль **тільки ASCII**: Basic Auth історично кодується latin-1, і
+  кирилиця дає `User code denied connection` при кожній спробі входу
 
 **Розглянуті альтернативи.** `gotty` (той самий підхід на Go, проєкт без
 активної підтримки), `wetty` (потребує Node), `code-server` (повний VS Code
