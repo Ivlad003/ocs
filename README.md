@@ -27,6 +27,22 @@ ocs expose 8080       # publish a third-party service
 ocs stop all          # shut down everything ocs started
 ```
 
+What a start looks like:
+
+```
+$ ocs
+Тека: /home/kosmodev/Documents/pet_project
+Порт [4096]: ⏎
+→ https://machine.tailnet.ts.net:4096
+  код: Xj3kqPZtLm…
+  лінк: https://machine.tailnet.ts.net:4096/connect#eyJ1cmxzIjpb…
+  █▀▀▀▀▀█ ▀█▀█ █▀▀▀▀▀█ …   ← QR of the same link (with qrencode)
+```
+
+The `лінк:` line opens the dashboard already logged in — opencode v2 always
+generates a server password, and `ocs` embeds it into a `/connect#…` link
+(the same format `opencode pair` uses). The QR code encodes that link.
+
 ## Requirements
 
 | Tool | Needed for | Site |
@@ -34,6 +50,7 @@ ocs stop all          # shut down everything ocs started
 | Tailscale | everything | [tailscale.com](https://tailscale.com) |
 | opencode | `ocs` (dashboards) | [opencode.ai](https://opencode.ai) |
 | ttyd | `ocs term` only | [ttyd docs](https://tsl0922.github.io/ttyd/) |
+| qrencode | QR code on start (optional) | [libqrencode](https://fukuchi.org/works/qrencode/) |
 
 If something is missing, the script prints the install commands for your OS
 instead of a bare `command not found`.
@@ -43,6 +60,7 @@ instead of a bare `command not found`.
 ```bash
 brew install --cask tailscale
 brew install ttyd                              # only for `ocs term`
+brew install qrencode                          # optional — QR code on start
 curl -fsSL https://opencode.ai/install | bash  # or: npm i -g opencode-ai
 tailscale up
 ```
@@ -52,6 +70,7 @@ tailscale up
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo apt install ttyd                          # only for `ocs term`
+sudo apt install qrencode                      # optional — QR code on start
 curl -fsSL https://opencode.ai/install | bash
 sudo tailscale up
 ```
@@ -71,6 +90,7 @@ tailscale up
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 irm get.scoop.sh | iex
 scoop install ttyd
+scoop install qrencode                         # optional — QR code on start
 ```
 
 Global npm packages land in `%APPDATA%\npm`, so restart the terminal if

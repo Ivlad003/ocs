@@ -27,6 +27,22 @@ ocs expose 8080       # опублікувати сторонній сервіс
 ocs stop all          # погасити все, що запускав ocs
 ```
 
+Як виглядає запуск:
+
+```
+$ ocs
+Тека: /home/kosmodev/Documents/pet_project
+Порт [4096]: ⏎
+→ https://machine.tailnet.ts.net:4096
+  код: Xj3kqPZtLm…
+  лінк: https://machine.tailnet.ts.net:4096/connect#eyJ1cmxzIjpb…
+  █▀▀▀▀▀█ ▀█▀█ █▀▀▀▀▀█ …   ← QR того самого лінка (якщо є qrencode)
+```
+
+Рядок `лінк:` відкриває дашборд уже залогіненим — opencode v2 завжди генерує
+пароль сервера, а `ocs` вшиває його в лінк `/connect#…` (той самий формат,
+що використовує `opencode pair`). QR-код кодує цей самий лінк.
+
 ## Вимоги
 
 | Інструмент | Потрібен для | Сайт |
@@ -34,6 +50,7 @@ ocs stop all          # погасити все, що запускав ocs
 | Tailscale | всього | [tailscale.com](https://tailscale.com) |
 | opencode | `ocs` (дашборди) | [opencode.ai](https://opencode.ai) |
 | ttyd | лише `ocs term` | [доки ttyd](https://tsl0922.github.io/ttyd/) |
+| qrencode | QR-код при запуску (необов'язково) | [libqrencode](https://fukuchi.org/works/qrencode/) |
 
 Якщо чогось бракує, скрипт сам надрукує команди встановлення під твою
 систему замість голого `command not found`.
@@ -43,6 +60,7 @@ ocs stop all          # погасити все, що запускав ocs
 ```bash
 brew install --cask tailscale
 brew install ttyd                              # лише для `ocs term`
+brew install qrencode                          # необов'язково — QR-код при запуску
 curl -fsSL https://opencode.ai/install | bash  # або: npm i -g opencode-ai
 tailscale up
 ```
@@ -52,6 +70,7 @@ tailscale up
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo apt install ttyd                          # лише для `ocs term`
+sudo apt install qrencode                      # необов'язково — QR-код при запуску
 curl -fsSL https://opencode.ai/install | bash
 sudo tailscale up
 ```
@@ -71,6 +90,7 @@ tailscale up
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 irm get.scoop.sh | iex
 scoop install ttyd
+scoop install qrencode                          # необов'язково — QR-код при запуску
 ```
 
 Глобальні npm-пакети лягають у `%APPDATA%\npm`, тож перезапусти термінал,
