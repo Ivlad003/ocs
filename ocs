@@ -14,7 +14,8 @@ usage() {
   cat <<'TXT'
 ocs — кілька opencode web на різних портах + публікація в tailnet
 
-  ocs                   вибрати теку зі списку, вибрати порт, запустити
+  ocs [тека]          запустити поточну теку (або вказану), вибрати порт
+  ocs pick            вибір теки з навігацією підпапками, вибрати порт
   ocs ls                що працює зараз
   ocs stop <порт|all>   зупинити інстанс
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
@@ -77,13 +78,71 @@ missing() {
 host() { tailscale status --json | sed -n 's/.*"DNSName": *"\([^"]*\)\..*/\1/p' | head -1; }
 free() { ! lsof -i :"$1" >/dev/null 2>&1; }
 
+pick() {
+  # інтерактивний браузер підпапок: номер — углиб, .. — угору, . або Enter — вибрати
+  local top cur dirs=() i choice d
+  top="$(cd "$ROOT" 2>/dev/null && pwd)" || { echo "Немає теки $ROOT (OCS_ROOT)"; exit 1; }
+  cur="${PWD}"
+  case "$cur" in
+    "$top"|"$top"/*) : ;;
+    *) cur="$top" ;;
+  esac
+  while :; do
+    dirs=()
+    for d in "$cur"/*/; do [ -d "$d" ] && dirs+=("${d%/}"); done
+    echo >&2
+    echo >&2 "Тека: $cur"
+    echo >&2 "  .)  вибрати цю теку"
+    [ "$cur" != "$top" ] && echo >&2 "  ..) вище"
+    i=1
+    for d in "${dirs[@]}"; do echo >&2 "  $i) $(basename "$d")/"; i=$((i+1)); done
+    IFS= read -r -p 'Вибір: ' choice || return 1
+    case "$choice" in
+      ''|'.') printf '%s\n' "$cur"; return 0 ;;
+      '..') [ "$cur" != "$top" ] && cur="$(dirname "$cur")" ;;
+      *)
+        case "$choice" in
+          *[!0-9]*) : ;;
+          *) if [ "$choice" -ge 1 ] 2>/dev/null && [ "$choice" -le "${#dirs[@]}" ] 2>/dev/null; then
+               cur="${dirs[$((choice-1))]}"
+             fi ;;
+        esac
+        ;;
+    esac
+  done
+}
+
 start() {
-  local dirs=() i=1 d
-  for d in "$ROOT"/*/; do [ -d "$d" ] && dirs+=("${d%/}"); done
-  [ ${#dirs[@]} -gt 0 ] || { echo "Порожньо в $ROOT"; exit 1; }
-  for d in "${dirs[@]}"; do echo "  $i) $(basename "$d")"; i=$((i+1)); done
-  printf 'Тека: '; read -r n
-  local dir="${dirs[$((n-1))]}"
+  local dir="" arg="${1:-}" pick_mode=0
+  case "$arg" in
+    pick|--pick|-p) pick_mode=1 ;;
+    "" )
+      # без аргументів — поточна тека, крім випадків коли ми в самому ROOT/HOME
+      case "$PWD" in
+        "$ROOT"|"$HOME"|"$HOME/Documents") pick_mode=1 ;;
+        *) dir="$PWD" ;;
+      esac
+      ;;
+    ~|~/*) dir="${arg/#~/$HOME}" ;;
+    /*) dir="$arg" ;;
+    .|./*|../*) dir="$PWD/$arg" ;;
+    *)
+      # спочатку як шлях від PWD, потім як ім'я теки в OCS_ROOT
+      if [ -d "$PWD/$arg" ]; then dir="$PWD/$arg"
+      elif [ -d "$ROOT/$arg" ]; then dir="$ROOT/$arg"
+      else echo "Немає теки: $arg (ні ./$arg, ні \$OCS_ROOT/$arg)"; exit 1; fi
+      ;;
+  esac
+  if [ -n "$dir" ]; then
+    dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Немає теки: $arg"; exit 1; }
+  fi
+
+  if [ "$pick_mode" = 1 ]; then
+    dir="$(pick)"
+    dir="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Немає теки: $dir"; exit 1; }
+  else
+    echo "Тека: $dir"
+  fi
 
   local p=4096
   while ! free "$p"; do p=$((p+1)); done
@@ -150,10 +209,14 @@ stop() {
 }
 
 command -v tailscale >/dev/null 2>&1 || missing tailscale
-[ "${1:-start}" = start ] && { command -v opencode >/dev/null 2>&1 || missing opencode; }
+case "${1:-start}" in
+  ls|stop|expose|off|reset|term|help|-h|--help) : ;;
+  *) command -v opencode >/dev/null 2>&1 || missing opencode ;;
+esac
 
 case "${1:-start}" in
-  start)          start ;;
+  start)          start "${2:-}" ;;
+  pick)           start pick ;;
   ls)             ls_ ;;
   term)           term "${2:-}" "${3:-}" ;;
   stop)           stop "${2:?потрібен порт або all}" ;;
@@ -164,5 +227,6 @@ case "${1:-start}" in
                                *) echo "скасовано" ;; esac ;;
   off)            tailscale serve --https="${2:?потрібен порт}" off >/dev/null; echo "знято ${2}" ;;
   help|-h|--help) usage ;;
-  *)              usage; exit 1 ;;
+  *) # ocs <тека>: шлях, ./шлях, ~/шлях або ім'я теки в OCS_ROOT
+                  start "$1" ;;
 esac

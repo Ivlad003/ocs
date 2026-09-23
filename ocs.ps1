@@ -112,6 +112,34 @@ function Get-FreePort([int]$From) {
   return $p
 }
 
+function Invoke-Picker {
+  # інтерактивний браузер підпапок: номер — углиб, .. — угору, . або Enter — вибрати
+  if (-not (Test-Path $Root -PathType Container)) { throw "Немає теки $Root (OCS_ROOT)" }
+  $top = (Resolve-Path $Root).Path
+  $cur = (Get-Location).Path
+  if (-not ($cur -eq $top -or $cur.StartsWith($top + [IO.Path]::DirectorySeparatorChar))) {
+    $cur = $top
+  }
+  while ($true) {
+    $dirs = @(Get-ChildItem -Path $cur -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+    ''
+    "Тека: $cur"
+    '  .)  вибрати цю теку'
+    if ($cur -ne $top) { '  ..) вище' }
+    for ($i = 0; $i -lt $dirs.Count; $i++) { "  $($i + 1)) $($dirs[$i].Name)/" }
+    $choice = Read-Host 'Вибір'
+    if ([string]::IsNullOrWhiteSpace($choice) -or $choice -eq '.') { return $cur }
+    if ($choice -eq '..') {
+      if ($cur -ne $top) { $cur = Split-Path $cur -Parent }
+      continue
+    }
+    if ($choice -match '^\d+$') {
+      $n = [int]$choice
+      if ($n -ge 1 -and $n -le $dirs.Count) { $cur = $dirs[$n - 1].FullName }
+    }
+  }
+}
+
 function Read-Registry {
   Get-Content $Reg | Where-Object { $_ -match '\S' } | ForEach-Object {
     $f = $_ -split "`t"
@@ -123,7 +151,8 @@ function Show-Usage {
   @'
 ocs — кілька opencode web на різних портах + публікація в tailnet
 
-  ocs                   вибрати теку зі списку, вибрати порт, запустити
+  ocs [тека]          запустити поточну теку (або вказану), вибрати порт
+  ocs pick            вибір теки з навігацією підпапками, вибрати порт
   ocs ls                що працює зараз
   ocs stop <порт|all>   зупинити інстанс
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
@@ -144,12 +173,42 @@ ocs — кілька opencode web на різних портах + публік�
 }
 
 function Start-Instance {
+  param([string]$DirArg = '')
   if (-not (Get-Command opencode -ErrorAction SilentlyContinue)) { Show-Missing 'opencode' }
-  $dirs = @(Get-ChildItem -Path $Root -Directory | Sort-Object Name)
-  if ($dirs.Count -eq 0) { throw "Порожньо в $Root" }
-  for ($i = 0; $i -lt $dirs.Count; $i++) { "  $($i + 1)) $($dirs[$i].Name)" }
-  $n = Read-Host 'Тека'
-  $dir = $dirs[[int]$n - 1].FullName
+  $dir = ''
+  $usedPicker = $false
+  if ($DirArg -in 'pick', '--pick', '-p') {
+    $usedPicker = $true
+    # нижче — інтерактивний браузер підпапок (Invoke-Picker)
+  } elseif ([string]::IsNullOrWhiteSpace($DirArg)) {
+    # без аргументів — поточна тека, крім самого ROOT/HOME/Documents
+    $cur = (Get-Location).Path
+    $docs = Join-Path $RealHome 'Documents'
+    if (($cur -eq $Root) -or ($cur -eq $RealHome) -or ($cur -eq $docs)) {
+      $DirArg = 'pick'
+      $usedPicker = $true
+    } else {
+      $dir = $cur
+    }
+  } elseif ($DirArg -eq '~' -or $DirArg -like '~/*') {
+    $dir = $DirArg -replace '^~', $RealHome
+  } elseif ([IO.Path]::IsPathRooted($DirArg) -or $DirArg -like './*' -or $DirArg -like '../*' -or $DirArg -eq '.') {
+    $dir = Join-Path (Get-Location).Path $DirArg
+  } else {
+    $cand = Join-Path (Get-Location).Path $DirArg
+    if (Test-Path $cand -PathType Container) { $dir = $cand }
+    elseif (Test-Path (Join-Path $Root $DirArg) -PathType Container) { $dir = Join-Path $Root $DirArg }
+    else { throw "Немає теки: $DirArg (ні ./$DirArg, ні `$OCS_ROOT/$DirArg)" }
+  }
+  if ($dir) {
+    $dir = (Resolve-Path $dir).Path
+  }
+
+  if (-not $dir) {
+    $usedPicker = $true
+    $dir = Invoke-Picker
+  }
+  if (-not $usedPicker) { "Тека: $dir" }
 
   $suggested = Get-FreePort 4096
   $x = Read-Host "Порт [$suggested]"
@@ -239,7 +298,8 @@ function Stop-Instance([string]$Key) {
 }
 
 switch ($Cmd) {
-  'start'  { Start-Instance }
+  'start'  { Start-Instance $A1 }
+  'pick'   { Start-Instance 'pick' }
   'ls'     { Show-List }
   'stop'   { if (-not $A1) { throw 'потрібен порт або all' }; Stop-Instance $A1 }
   'term'   {
@@ -262,5 +322,8 @@ switch ($Cmd) {
     if ($a -in 'y', 'Y') { & (Get-Ts) serve reset; Set-Content $Reg ''; 'готово' }
     else { 'скасовано' }
   }
-  default  { Show-Usage }
+  default  {
+    if ($Cmd -in '-h', '--help', 'help') { Show-Usage }
+    else { Start-Instance $Cmd } # ocs <тека>: шлях або ім'я теки в OCS_ROOT
+  }
 }

@@ -6,7 +6,8 @@ Run several `opencode web` instances on different ports and publish them
 inside your own Tailscale tailnet. One script, no dependencies.
 
 ```
-ocs                   pick a project folder and a port, start it
+ocs [dir]             run the current folder (or the given one), pick a port
+ocs pick              browse OCS_ROOT with subfolder navigation, pick a port
 ocs ls                what is running right now
 ocs stop <port|all>   stop an instance
 ocs term [font]       ttyd web terminal (font 25, port 7681 by default)
@@ -17,7 +18,9 @@ ocs help              this help
 ```
 
 ```bash
-ocs                   # start a dashboard for a project
+ocs                   # dashboard for the current folder — no picker
+ocs ~/projects/demo   # dashboard for the given folder
+ocs pick              # browse: numbers go deeper, . selects, .. goes up
 ocs term 30           # a terminal alongside, font size 30
 ocs term 30 7690      # same, on a port of your choice
 ocs expose 8080       # publish a third-party service
@@ -116,7 +119,7 @@ Two environment variables, no config file:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `OCS_ROOT` | `~/Documents` | where to look for project folders |
+| `OCS_ROOT` | `~/Documents` | browse start folder for `ocs pick` |
 | `OCS_PASS` | empty | password for the opencode web UI |
 
 Worth pinning in `~/.zshrc`:
