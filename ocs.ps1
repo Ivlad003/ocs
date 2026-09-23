@@ -20,12 +20,47 @@ $LogDir = Join-Path $RealHome '.ocs-logs'
 if (-not (Test-Path $Reg))    { New-Item -ItemType File      -Path $Reg    -Force | Out-Null }
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 
+function Show-Missing([string]$Tool) {
+  Write-Host ''
+  switch ($Tool) {
+    'opencode' {
+      Write-Host 'opencode не знайдено в PATH.' -ForegroundColor Red
+      Write-Host ''
+      Write-Host '  встановити:  npm i -g opencode-ai'
+      Write-Host '  сайт:        https://opencode.ai'
+    }
+    'tailscale' {
+      Write-Host 'tailscale не знайдено в PATH.' -ForegroundColor Red
+      Write-Host ''
+      Write-Host '  встановити:  winget install tailscale.tailscale'
+      Write-Host '  завантажити: https://tailscale.com/download/windows'
+      Write-Host '  сайт:        https://tailscale.com'
+      Write-Host ''
+      Write-Host '  Після встановлення увімкни HTTPS:'
+      Write-Host '  https://login.tailscale.com/admin/dns → Enable HTTPS'
+      Write-Host ''
+      Write-Host '  tailscale serve потребує запуску PowerShell від адміністратора.'
+    }
+    'ttyd' {
+      Write-Host 'ttyd не знайдено в PATH.' -ForegroundColor Red
+      Write-Host ''
+      Write-Host '  встановити:  scoop install ttyd'
+      Write-Host '  релізи:      https://github.com/tsl0922/ttyd/releases'
+      Write-Host '  доки:        https://tsl0922.github.io/ttyd/'
+      Write-Host ''
+      Write-Host '  Потрібен Windows 10+ (ConPTY).'
+    }
+  }
+  Write-Host ''
+  exit 1
+}
+
 function Get-Ts {
   $exe = Get-Command tailscale -ErrorAction SilentlyContinue
   if ($exe) { return $exe.Source }
   $fallback = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
   if (Test-Path $fallback) { return $fallback }
-  throw 'tailscale не знайдено — встанови з tailscale.com або додай у PATH'
+  Show-Missing 'tailscale'
 }
 
 function Get-TsHost {
@@ -77,6 +112,7 @@ ocs — кілька opencode web на різних портах + публік�
 }
 
 function Start-Instance {
+  if (-not (Get-Command opencode -ErrorAction SilentlyContinue)) { Show-Missing 'opencode' }
   $dirs = @(Get-ChildItem -Path $Root -Directory | Sort-Object Name)
   if ($dirs.Count -eq 0) { throw "Порожньо в $Root" }
   for ($i = 0; $i -lt $dirs.Count; $i++) { "  $($i + 1)) $($dirs[$i].Name)" }
@@ -120,9 +156,7 @@ function Start-Instance {
 }
 
 function Start-Term([int]$FontSize, [int]$Port) {
-  if (-not (Get-Command ttyd -ErrorAction SilentlyContinue)) {
-    throw 'ttyd не знайдено — scoop install ttyd, або бінарник з github.com/tsl0922/ttyd/releases'
-  }
+  if (-not (Get-Command ttyd -ErrorAction SilentlyContinue)) { Show-Missing 'ttyd' }
   $p = Get-FreePort $Port
   # ttyd на Windows біндиться на 0.0.0.0 і не вміє -i lo0, тому публічний
   # порт беремо інший — інакше конфлікт із tailscaled за той самий порт

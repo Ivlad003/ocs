@@ -36,6 +36,40 @@ ocs — кілька opencode web на різних портах + публік�
 TXT
 }
 
+missing() {
+  local os; os="$(uname -s)"
+  echo >&2
+  case "$1" in
+    opencode)
+      echo "opencode не знайдено в PATH." >&2; echo >&2
+      echo "  встановити:  curl -fsSL https://opencode.ai/install | bash" >&2
+      echo "  або:         npm i -g opencode-ai" >&2
+      echo "  сайт:        https://opencode.ai" >&2 ;;
+    tailscale)
+      echo "tailscale не знайдено в PATH." >&2; echo >&2
+      if [ "$os" = Darwin ]; then
+        echo "  встановити:  brew install --cask tailscale" >&2
+      else
+        echo "  встановити:  curl -fsSL https://tailscale.com/install.sh | sh" >&2
+      fi
+      echo "  завантажити: https://tailscale.com/download" >&2
+      echo "  сайт:        https://tailscale.com" >&2; echo >&2
+      echo "  Після встановлення увімкни HTTPS:" >&2
+      echo "  https://login.tailscale.com/admin/dns → Enable HTTPS" >&2 ;;
+    ttyd)
+      echo "ttyd не знайдено в PATH." >&2; echo >&2
+      if [ "$os" = Darwin ]; then
+        echo "  встановити:  brew install ttyd" >&2
+      else
+        echo "  встановити:  sudo apt install ttyd   (або збірка з джерел)" >&2
+      fi
+      echo "  релізи:      https://github.com/tsl0922/ttyd/releases" >&2
+      echo "  доки:        https://tsl0922.github.io/ttyd/" >&2 ;;
+  esac
+  echo >&2
+  exit 1
+}
+
 host() { tailscale status --json | sed -n 's/.*"DNSName": *"\([^"]*\)\..*/\1/p' | head -1; }
 free() { ! lsof -i :"$1" >/dev/null 2>&1; }
 
@@ -68,7 +102,7 @@ start() {
 term() {
   local fs="${1:-25}" p="${2:-7681}" lo=lo
   [ "$(uname -s)" = Darwin ] && lo=lo0
-  command -v ttyd >/dev/null 2>&1 || { echo "ttyd не знайдено — brew install ttyd"; exit 1; }
+  command -v ttyd >/dev/null 2>&1 || missing ttyd
   while ! free "$p"; do p=$((p+1)); done
 
   # -i lo0: tailscale serve сам слухає цей порт на тайнет-адресі
@@ -110,6 +144,9 @@ stop() {
   mv "$tmp" "$REG"
   echo; echo "правила tailscale зараз:"; tailscale serve status
 }
+
+command -v tailscale >/dev/null 2>&1 || missing tailscale
+[ "${1:-start}" = start ] && { command -v opencode >/dev/null 2>&1 || missing opencode; }
 
 case "${1:-start}" in
   start)          start ;;
