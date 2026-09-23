@@ -113,6 +113,33 @@ No password on purpose: `-c user:pass` breaks the websocket upgrade, because
 browsers do not send Basic Auth credentials in a WebSocket handshake. The
 tailnet is the perimeter here.
 
+## Windows
+
+`ocs.ps1` is the PowerShell port, same commands:
+
+```powershell
+.\ocs.ps1 term 30
+.\ocs.ps1 ls
+```
+
+Make it a global command by adding a function to your profile
+(`notepad $PROFILE`):
+
+```powershell
+function ocs { & "$HOME\Documents\pet_project\ocs\ocs.ps1" @args }
+```
+
+Windows specifics:
+
+- PowerShell 7 (`pwsh`) is required; if scripts are blocked, run
+  `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+- `tailscale serve` needs an **elevated** shell — run PowerShell as
+  Administrator, otherwise publishing fails
+- `HOME` and `USERPROFILE` are both overridden, since that is what the
+  project picker follows on Windows
+- `ocs term` runs `pwsh` directly instead of `tmux`, so the session does not
+  survive a reload; install ttyd with `scoop install ttyd`
+
 ## Minimal alternative
 
 If the script feels like too much, two shell functions do the same job:

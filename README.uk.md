@@ -111,6 +111,32 @@ tailscale serve --bg --https=7681 localhost:7681
 Без пароля свідомо: `-c user:pass` ламає websocket-апгрейд, бо браузер не
 передає Basic Auth у WebSocket-handshake. Периметр тут — тайнет.
 
+## Windows
+
+`ocs.ps1` — порт на PowerShell, команди ті самі:
+
+```powershell
+.\ocs.ps1 term 30
+.\ocs.ps1 ls
+```
+
+Глобальною командою робиться функцією в профілі (`notepad $PROFILE`):
+
+```powershell
+function ocs { & "$HOME\Documents\pet_project\ocs\ocs.ps1" @args }
+```
+
+Особливості Windows:
+
+- потрібен PowerShell 7 (`pwsh`); якщо скрипти заблоковані —
+  `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+- `tailscale serve` вимагає **адмінських прав** — запускай PowerShell від
+  імені адміністратора, інакше публікація впаде
+- підміняються і `HOME`, і `USERPROFILE` — на Windows пікер проєктів іде
+  саме за другим
+- `ocs term` запускає `pwsh` напряму замість `tmux`, тож сесія не переживає
+  перезавантаження вкладки; ttyd ставиться через `scoop install ttyd`
+
 ## Мінімальна альтернатива
 
 Якщо скрипт зайвий — те саме двома функціями в `~/.zshrc`:
