@@ -26,9 +26,61 @@ ocs stop all          # погасити все, що запускав ocs
 
 ## Вимоги
 
-- [opencode](https://opencode.ai) у `PATH`
-- [Tailscale](https://tailscale.com) з увімкненим MagicDNS і HTTPS
-  (адмінка → DNS → **Enable HTTPS**)
+| Інструмент | Потрібен для | Сайт |
+|---|---|---|
+| Tailscale | всього | [tailscale.com](https://tailscale.com) |
+| opencode | `ocs` (дашборди) | [opencode.ai](https://opencode.ai) |
+| ttyd | лише `ocs term` | [доки ttyd](https://tsl0922.github.io/ttyd/) |
+
+Якщо чогось бракує, скрипт сам надрукує команди встановлення під твою
+систему замість голого `command not found`.
+
+### macOS
+
+```bash
+brew install --cask tailscale
+brew install ttyd                              # лише для `ocs term`
+curl -fsSL https://opencode.ai/install | bash  # або: npm i -g opencode-ai
+tailscale up
+```
+
+### Linux
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo apt install ttyd                          # лише для `ocs term`
+curl -fsSL https://opencode.ai/install | bash
+sudo tailscale up
+```
+
+### Windows
+
+PowerShell запускати **від імені адміністратора** — інакше `tailscale serve`
+не працюватиме.
+
+```powershell
+winget install tailscale.tailscale
+winget install OpenJS.NodeJS.LTS
+npm install -g opencode-ai
+tailscale up
+
+# лише для `ocs term` — спершу scoop, якщо його немає
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+irm get.scoop.sh | iex
+scoop install ttyd
+```
+
+Глобальні npm-пакети лягають у `%APPDATA%\npm`, тож перезапусти термінал,
+якщо `opencode` не видно. Якщо `tailscale` не в `PATH`, він тут:
+`C:\Program Files\Tailscale\tailscale.exe`.
+
+### Одноразовий крок для всіх систем
+
+Увімкнути HTTPS для тайнету, інакше `tailscale serve --https` приймає
+конфіг, але сертифікат не видається:
+
+[login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns) →
+MagicDNS увімкнути → **Enable HTTPS**
 
 ## Встановлення
 

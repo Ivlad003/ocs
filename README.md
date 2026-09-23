@@ -26,9 +26,61 @@ ocs stop all          # shut down everything ocs started
 
 ## Requirements
 
-- [opencode](https://opencode.ai) in `PATH`
-- [Tailscale](https://tailscale.com) with MagicDNS and HTTPS enabled
-  (admin console → DNS → **Enable HTTPS**)
+| Tool | Needed for | Site |
+|---|---|---|
+| Tailscale | everything | [tailscale.com](https://tailscale.com) |
+| opencode | `ocs` (dashboards) | [opencode.ai](https://opencode.ai) |
+| ttyd | `ocs term` only | [ttyd docs](https://tsl0922.github.io/ttyd/) |
+
+If something is missing, the script prints the install commands for your OS
+instead of a bare `command not found`.
+
+### macOS
+
+```bash
+brew install --cask tailscale
+brew install ttyd                              # only for `ocs term`
+curl -fsSL https://opencode.ai/install | bash  # or: npm i -g opencode-ai
+tailscale up
+```
+
+### Linux
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo apt install ttyd                          # only for `ocs term`
+curl -fsSL https://opencode.ai/install | bash
+sudo tailscale up
+```
+
+### Windows
+
+Run PowerShell **as Administrator** — `tailscale serve` will not work
+otherwise.
+
+```powershell
+winget install tailscale.tailscale
+winget install OpenJS.NodeJS.LTS
+npm install -g opencode-ai
+tailscale up
+
+# only for `ocs term` — scoop first, if you don't have it
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+irm get.scoop.sh | iex
+scoop install ttyd
+```
+
+Global npm packages land in `%APPDATA%\npm`, so restart the terminal if
+`opencode` is not found. If `tailscale` is not on `PATH`, it lives at
+`C:\Program Files\Tailscale\tailscale.exe`.
+
+### One-off step for every platform
+
+Enable HTTPS for the tailnet, otherwise `tailscale serve --https` accepts the
+config but no certificate is issued:
+
+[login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns) →
+MagicDNS on → **Enable HTTPS**
 
 ## Install
 
