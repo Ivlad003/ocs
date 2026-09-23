@@ -211,7 +211,10 @@ term() {
 
   tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
   printf '%s\t%s\t%s\n' "$p" "$pid" "ttyd" >>"$REG"
-  echo "→ https://$(host):$p  (шрифт $fs)"
+  local url
+  url="https://$(host):$p"
+  echo "→ $url  (шрифт $fs)"
+  qr "$url"
 }
 
 ls_() {

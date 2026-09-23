@@ -21,7 +21,7 @@ ocs help              this help
 ocs                   # dashboard for the current folder — no picker
 ocs ~/projects/demo   # dashboard for the given folder
 ocs pick              # browse from the current folder: numbers go deeper, . selects, .. goes up
-ocs term 30           # a terminal alongside, font size 30
+ocs term 30           # a terminal alongside, font size 30 — URL + QR
 ocs term 30 7690      # same, on a port of your choice
 ocs expose 8080       # publish a third-party service — prints URL + QR
 ocs stop all          # shut down everything ocs started

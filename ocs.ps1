@@ -286,7 +286,9 @@ function Start-Term([int]$FontSize, [int]$Port) {
 
   & (Get-Ts) serve --bg --https=$servePort "localhost:$p" | Out-Null
   Add-Content $Reg "$servePort`t$($proc.Id)`tttyd"
-  "→ https://$(Get-TsHost):$servePort  (шрифт $FontSize)"
+  $url = 'https://' + (Get-TsHost) + ':' + $servePort
+  "→ $url  (шрифт $FontSize)"
+  if (Get-Command qrencode -ErrorAction SilentlyContinue) { & qrencode -t ANSIUTF8 $url }
 }
 
 function Show-List {
