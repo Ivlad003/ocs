@@ -80,11 +80,12 @@ export OCS_PASS='...'
 
 ```bash
 brew install ttyd
-ttyd -p 7681 -c user:пароль -W tmux new -A -s main
+ttyd -i 127.0.0.1 -p 7681 -c user:пароль -W tmux new -A -s main
 ocs expose 7681
 ```
 
-`-W` обов'язковий (без нього термінал read-only), `tmux new -A` тримає
+`-i 127.0.0.1` обов'язковий — інакше ttyd конфліктує з tailscaled за порт.
+`-W` теж (без нього термінал read-only), `tmux new -A` тримає
 сесію між перезавантаженнями вкладки, пароль — тільки латиниця й цифри
 (кирилиця в Basic Auth ламає автентифікацію). Деталі — `docs/DECISIONS.md`, №11.
 
