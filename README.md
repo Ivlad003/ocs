@@ -1,38 +1,40 @@
 # ocs
 
-Запуск кількох `opencode web` на різних портах і публікація їх у власному
-Tailscale-тайнеті. Один скрипт, без залежностей.
+**English** · [Українська](README.uk.md)
+
+Run several `opencode web` instances on different ports and publish them
+inside your own Tailscale tailnet. One script, no dependencies.
 
 ```
-ocs                   вибрати теку зі списку, вибрати порт, запустити
-ocs ls                що працює зараз
-ocs stop <порт|all>   зупинити інстанс
-ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
-ocs expose <порт>     прокинути будь-який локальний порт у tailnet
-ocs off <порт>        прибрати прокинутий порт
-ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
-ocs help              довідка
+ocs                   pick a project folder and a port, start it
+ocs ls                what is running right now
+ocs stop <port|all>   stop an instance
+ocs term [font]       ttyd web terminal (font 25, port 7681 by default)
+ocs expose <port>     publish any local port to the tailnet
+ocs off <port>        remove a published port
+ocs reset             drop ALL tailscale serve rules and clear the registry
+ocs help              this help
 ```
 
 ```bash
-ocs                   # запустити дашборд для проєкту
-ocs term 30           # термінал поруч, шрифт 30
-ocs term 30 7690      # те саме на своєму порту
-ocs expose 8080       # опублікувати сторонній сервіс
-ocs stop all          # погасити все, що запускав ocs
+ocs                   # start a dashboard for a project
+ocs term 30           # a terminal alongside, font size 30
+ocs term 30 7690      # same, on a port of your choice
+ocs expose 8080       # publish a third-party service
+ocs stop all          # shut down everything ocs started
 ```
 
-## Вимоги
+## Requirements
 
-- [opencode](https://opencode.ai) у `PATH`
-- [Tailscale](https://tailscale.com) з увімкненим MagicDNS і HTTPS
-  (адмінка → DNS → **Enable HTTPS**)
+- [opencode](https://opencode.ai) in `PATH`
+- [Tailscale](https://tailscale.com) with MagicDNS and HTTPS enabled
+  (admin console → DNS → **Enable HTTPS**)
 
-## Встановлення
+## Install
 
-### Варіант 1 — символьне посилання (рекомендований)
+### Option 1 — symlink (recommended)
 
-Репозиторій лишається джерелом правди, `git pull` одразу оновлює команду.
+The repository stays the source of truth, so `git pull` updates the command.
 
 ```bash
 git clone <URL> ~/Documents/pet_project/ocs
@@ -40,7 +42,7 @@ chmod +x ~/Documents/pet_project/ocs/ocs
 sudo ln -sf ~/Documents/pet_project/ocs/ocs /usr/local/bin/ocs
 ```
 
-### Варіант 2 — власна тека в PATH, без sudo
+### Option 2 — your own bin directory, no sudo
 
 ```bash
 mkdir -p ~/bin
@@ -49,53 +51,53 @@ echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### Перевірка
+### Verify
 
 ```bash
-which ocs     # має показати шлях
+which ocs
 ocs help
 ```
 
-## Налаштування
+## Configuration
 
-Двома змінними оточення, файлу конфіга немає:
+Two environment variables, no config file:
 
-| Змінна | Типово | Що робить |
+| Variable | Default | What it does |
 |---|---|---|
-| `OCS_ROOT` | `~/Documents` | де шукати теки проєктів |
-| `OCS_PASS` | порожньо | пароль на веб-інтерфейс opencode |
+| `OCS_ROOT` | `~/Documents` | where to look for project folders |
+| `OCS_PASS` | empty | password for the opencode web UI |
 
-Зручно закріпити в `~/.zshrc`:
+Worth pinning in `~/.zshrc`:
 
 ```bash
 export OCS_ROOT=~/Documents/pet_project
 export OCS_PASS='...'
 ```
 
-## Як це працює
+## How it works
 
-1. `HOME` для процесу opencode підміняється на теку проєкту — пікер «Open
-   project» у веб-інтерфейсі анкориться до `$HOME` і тому не показує решту
-   диска. `XDG_CONFIG_HOME` і `XDG_DATA_HOME` лишаються справжніми, щоб
-   opencode не загубив свій конфіг і сесії.
-2. Сервер слухає тільки `127.0.0.1` — назовні порт не світиться.
-3. `tailscale serve --bg --https=<порт> localhost:<порт>` публікує його
-   всередині тайнету з валідним TLS-сертифікатом.
-4. Реєстр запущеного лежить у `~/.ocs`, логи — у `.ocs.log` усередині теки
-   кожного проєкту.
+1. `HOME` for the opencode process is replaced with the project folder. The
+   "Open project" picker in the web UI is anchored to `$HOME`, so it stops
+   exposing the rest of your disk. `XDG_CONFIG_HOME` and `XDG_DATA_HOME` stay
+   real, so opencode keeps its config and sessions.
+2. The server listens on `127.0.0.1` only — nothing is exposed to the LAN.
+3. `tailscale serve --bg --https=<port> localhost:<port>` publishes it inside
+   the tailnet with a valid TLS certificate.
+4. The registry of running instances lives in `~/.ocs`; logs go to `.ocs.log`
+   inside each project folder.
 
-## Веб-термінал поруч
+## Web terminal alongside
 
-Щоб мати ще й звичайний shell у браузері:
+For a plain shell in the browser:
 
 ```bash
 brew install ttyd
-ocs term        # шрифт 25, порт 7681
-ocs term 30     # шрифт 30
-ocs stop 7681   # зупинити
+ocs term        # font 25, port 7681
+ocs term 30     # font 30
+ocs stop 7681   # stop it
 ```
 
-Під капотом:
+Under the hood:
 
 ```bash
 ttyd -i lo0 -p 7681 -W -t fontSize=25 -t lineHeight=1.2 -t scrollback=5000 \
@@ -103,16 +105,18 @@ ttyd -i lo0 -p 7681 -W -t fontSize=25 -t lineHeight=1.2 -t scrollback=5000 \
 tailscale serve --bg --https=7681 localhost:7681
 ```
 
-`-W` обов'язковий (без нього термінал read-only), `-i lo0` теж, якщо порт
-уже опублікований — інакше конфлікт із tailscaled за той самий порт.
+`-W` is required (without it the terminal is read-only), and so is `-i lo0`
+when the port is already published — otherwise ttyd collides with tailscaled
+over the same port.
 
-Без пароля свідомо: `-c user:pass` ламає websocket-апгрейд, бо браузер не
-передає Basic Auth у WebSocket-handshake. Периметр тут — тайнет. Деталі —
-`docs/DECISIONS.md`, №11.
+No password on purpose: `-c user:pass` breaks the websocket upgrade, because
+browsers do not send Basic Auth credentials in a WebSocket handshake. The
+tailnet is the perimeter here. See [`docs/DECISIONS.md`](docs/DECISIONS.md),
+entry 11.
 
-## Мінімальна альтернатива
+## Minimal alternative
 
-Якщо скрипт зайвий — те саме двома функціями в `~/.zshrc`:
+If the script feels like too much, two shell functions do the same job:
 
 ```bash
 oc() {
@@ -124,9 +128,17 @@ oc() {
 ocoff() { tailscale serve --https=${1:-4096} off; }
 ```
 
-## Обмеження
+## Limitations
 
-Підміна `HOME` і правила `permission` в `opencode.json` — це **guardrails, не
-пісочниця**. Інструмент `bash` усередині агента може вийти за межі проєкту.
-Якщо потрібна справжня ізоляція — запускати opencode в контейнері з
-примонтованою лише текою проєкту. Див. `docs/DECISIONS.md`, рішення №8.
+Replacing `HOME` and the `permission` rules in `opencode.json` are
+**guardrails, not a sandbox**. The agent's `bash` tool can still step outside
+the project. If you need real isolation, run opencode in a container with only
+the project folder mounted. See [`docs/DECISIONS.md`](docs/DECISIONS.md),
+entry 8.
+
+## Decision log
+
+[`docs/DECISIONS.md`](docs/DECISIONS.md) records why this setup looks the way
+it does — including the dead ends: Tailscale Services and their tag
+requirements, the experimental Caddy plugin, ttyd's Basic Auth. Written in
+Ukrainian.
