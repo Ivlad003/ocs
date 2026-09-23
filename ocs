@@ -4,8 +4,6 @@
 set -eu
 
 ROOT="${OCS_ROOT:-$HOME/Documents}"   # де шукати проєкти
-PASS="${OCS_PASS:-}"                  # фіксований пароль (порожній = новий код)
-NICK="${OCS_NICK:-}"                  # нік інстанса (показується при запуску та в ls)
 REG="$HOME/.ocs"                      # реєстр запущеного
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DAT="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -22,14 +20,11 @@ ocs — кілька opencode web на різних портах + публік�
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
   ocs off <порт>        прибрати прокинутий порт
-  ocs nick <порт> <нік>  задати/змінити нік інстанса
   ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
   ocs help              ця довідка
 
 Змінні оточення:
   OCS_ROOT   де шукати проєкти            (типово ~/Documents)
-  OCS_PASS   фіксований пароль             (типово: новий код із 6 символів)
-  OCS_NICK   нік інстанса                  (типово порожній)
 
 Приклад:
   OCS_ROOT=~/Documents/pet_project ocs
@@ -153,15 +148,8 @@ start() {
   printf 'Порт [%s]: ' "$p"; read -r x; p="${x:-$p}"
   free "$p" || { echo "Порт $p зайнятий"; exit 1; }
 
-  # код для веб-інтерфейсу: OCS_PASS якщо задано, інакше нові 6 символів на кожен запуск
-  local code="$PASS" nick="$NICK"
-  if [ -z "$code" ]; then
-    code="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 6)"
-  fi
-
   # HOME=$dir тримає пікер проєктів усередині теки, XDG_* лишають конфіг на місці
   ( cd "$dir" && HOME="$dir" XDG_CONFIG_HOME="$CFG" XDG_DATA_HOME="$DAT" \
-      OPENCODE_SERVER_PASSWORD="$code" \
       nohup opencode serve --hostname 127.0.0.1 --port "$p" \
       >"$dir/.ocs.log" 2>&1 & echo $! >"$REG.pid" )
   sleep 1
@@ -172,11 +160,9 @@ start() {
   [ -n "$pid" ] || pid="$(cat "$REG.pid")"
 
   tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
-  printf '%s\t%s\t%s\t%s\n' "$p" "$pid" "$dir" "$nick" >>"$REG"
+  printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$REG"
   rm -f "$REG.pid"
   echo "→ https://$(host):$p"
-  [ -n "$nick" ] && echo "  нік: $nick"
-  echo "  код: $code"
 }
 
 term() {
@@ -200,18 +186,18 @@ term() {
 }
 
 ls_() {
-  local p pid dir nick
-  while IFS=$'\t' read -r p pid dir nick; do
+  local p pid dir
+  while IFS=$'\t' read -r p pid dir; do
     [ -n "${p:-}" ] || continue
-    kill -0 "$pid" 2>/dev/null && echo "  $p  $(basename "$dir")  ${nick:+($nick) } https://$(host):$p"
+    kill -0 "$pid" 2>/dev/null && echo "  $p  $(basename "$dir")  https://$(host):$p"
   done <"$REG"
   echo; tailscale serve status
 }
 
 stop() {
-  local key="$1" tmp p pid dir nick
+  local key="$1" tmp p pid dir
   tmp=$(mktemp)
-  while IFS=$'\t' read -r p pid dir nick; do
+  while IFS=$'\t' read -r p pid dir; do
     [ -n "${p:-}" ] || continue
     if [ "$key" = all ] || [ "$key" = "$p" ]; then
       kill "$pid" 2>/dev/null || true
@@ -222,7 +208,7 @@ stop() {
       tailscale serve --https="$p" off >/dev/null 2>&1 || true
       echo "зупинено $p"
     else
-      printf '%s\t%s\t%s\t%s\n' "$p" "$pid" "$dir" "$nick" >>"$tmp"
+      printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$tmp"
     fi
   done <"$REG"
   mv "$tmp" "$REG"
@@ -240,30 +226,9 @@ off() {
   fi
 }
 
-nick() {
-  # задати/змінити нік інстанса в реєстрі
-  local p="$1" name="$2" rp rpid rdir rnick tmp found=0
-  tmp=$(mktemp)
-  while IFS=$'\t' read -r rp rpid rdir rnick; do
-    [ -n "${rp:-}" ] || continue
-    if [ "$rp" = "$p" ]; then
-      printf '%s\t%s\t%s\t%s\n' "$rp" "$rpid" "$rdir" "$name" >>"$tmp"
-      found=1
-    else
-      printf '%s\t%s\t%s\t%s\n' "$rp" "$rpid" "$rdir" "$rnick" >>"$tmp"
-    fi
-  done <"$REG"
-  mv "$tmp" "$REG"
-  if [ "$found" = 1 ]; then
-    echo "нік для порту $p → $name"
-  else
-    echo "порт $p не знайдено в реєстрі (ocs ls)"
-  fi
-}
-
 command -v tailscale >/dev/null 2>&1 || missing tailscale
 case "${1:-start}" in
-  ls|stop|expose|off|nick|reset|term|help|-h|--help) : ;;
+  ls|stop|expose|off|reset|term|help|-h|--help) : ;;
   *) command -v opencode >/dev/null 2>&1 || missing opencode ;;
 esac
 
@@ -279,7 +244,6 @@ case "${1:-start}" in
                   case "$a" in y|Y) tailscale serve reset; : >"$REG"; echo "готово" ;;
                                *) echo "скасовано" ;; esac ;;
   off)            off "${2:?потрібен порт}" ;;
-  nick)           nick "${2:?потрібен порт}" "${3:?потрібен нік}" ;;
   help|-h|--help) usage ;;
   *) # ocs <тека>: шлях, ./шлях, ~/шлях або ім'я теки в OCS_ROOT
                   start "$1" ;;

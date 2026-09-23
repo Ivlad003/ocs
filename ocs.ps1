@@ -13,7 +13,6 @@ $ErrorActionPreference = 'Stop'
 
 $RealHome = $HOME
 $Root = if ($env:OCS_ROOT) { $env:OCS_ROOT } else { Join-Path $RealHome 'Documents' }
-$Pass = if ($env:OCS_PASS) { $env:OCS_PASS } else { '' }
 $Reg  = Join-Path $RealHome '.ocs'
 $LogDir = Join-Path $RealHome '.ocs-logs'
 
@@ -168,7 +167,6 @@ ocs — кілька opencode web на різних портах + публік�
 
 Змінні оточення:
   OCS_ROOT   де шукати проєкти            (типово ~\Documents)
-  OCS_PASS   пароль на веб-інтерфейс      (типово без пароля)
 
 Приклад:
   $env:OCS_ROOT = "$HOME\projects"; ocs
@@ -225,13 +223,11 @@ function Start-Instance {
   $saved = @{
     HOME = $env:HOME; USERPROFILE = $env:USERPROFILE
     XDG_CONFIG_HOME = $env:XDG_CONFIG_HOME; XDG_DATA_HOME = $env:XDG_DATA_HOME
-    OPENCODE_SERVER_PASSWORD = $env:OPENCODE_SERVER_PASSWORD
   }
   $env:HOME = $dir
   $env:USERPROFILE = $dir
   $env:XDG_CONFIG_HOME = Join-Path $RealHome '.config'
   $env:XDG_DATA_HOME = Join-Path $RealHome '.local\share'
-  $env:OPENCODE_SERVER_PASSWORD = $Pass
 
   $log = Join-Path $LogDir "$(Split-Path $dir -Leaf)-$port.log"
   try {

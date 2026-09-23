@@ -115,18 +115,16 @@ ocs help
 
 ## Configuration
 
-Two environment variables, no config file:
+One environment variable, no config file:
 
 | Variable | Default | What it does |
 |---|---|---|
 | `OCS_ROOT` | `~/Documents` | navigation boundary for `ocs pick` when launched inside it; `ocs <name>` looks up folders here |
-| `OCS_PASS` | empty | password for the opencode web UI |
 
 Worth pinning in `~/.zshrc`:
 
 ```bash
 export OCS_ROOT=~/Documents/pet_project
-export OCS_PASS='...'
 ```
 
 ## How it works
