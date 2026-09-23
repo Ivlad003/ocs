@@ -109,8 +109,7 @@ tailscale serve --bg --https=7681 localhost:7681
 уже опублікований — інакше конфлікт із tailscaled за той самий порт.
 
 Без пароля свідомо: `-c user:pass` ламає websocket-апгрейд, бо браузер не
-передає Basic Auth у WebSocket-handshake. Периметр тут — тайнет. Деталі —
-`docs/DECISIONS.md`, №11.
+передає Basic Auth у WebSocket-handshake. Периметр тут — тайнет.
 
 ## Мінімальна альтернатива
 
@@ -131,4 +130,4 @@ ocoff() { tailscale serve --https=${1:-4096} off; }
 Підміна `HOME` і правила `permission` в `opencode.json` — це **guardrails, не
 пісочниця**. Інструмент `bash` усередині агента може вийти за межі проєкту.
 Якщо потрібна справжня ізоляція — запускати opencode в контейнері з
-примонтованою лише текою проєкту. Див. `docs/DECISIONS.md`, рішення №8.
+примонтованою лише текою проєкту.

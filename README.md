@@ -111,8 +111,7 @@ over the same port.
 
 No password on purpose: `-c user:pass` breaks the websocket upgrade, because
 browsers do not send Basic Auth credentials in a WebSocket handshake. The
-tailnet is the perimeter here. See [`docs/DECISIONS.md`](docs/DECISIONS.md),
-entry 11.
+tailnet is the perimeter here.
 
 ## Minimal alternative
 
@@ -133,12 +132,4 @@ ocoff() { tailscale serve --https=${1:-4096} off; }
 Replacing `HOME` and the `permission` rules in `opencode.json` are
 **guardrails, not a sandbox**. The agent's `bash` tool can still step outside
 the project. If you need real isolation, run opencode in a container with only
-the project folder mounted. See [`docs/DECISIONS.md`](docs/DECISIONS.md),
-entry 8.
-
-## Decision log
-
-[`docs/DECISIONS.md`](docs/DECISIONS.md) records why this setup looks the way
-it does — including the dead ends: Tailscale Services and their tag
-requirements, the experimental Caddy plugin, ttyd's Basic Auth. Written in
-Ukrainian.
+the project folder mounted.
