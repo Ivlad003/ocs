@@ -19,6 +19,7 @@ ocs — кілька opencode web на різних портах + публік�
   ocs stop <порт|all>   зупинити інстанс
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
   ocs off <порт>        прибрати прокинутий порт
+  ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
   ocs help              ця довідка
 
 Змінні оточення:
@@ -84,6 +85,7 @@ stop() {
     fi
   done <"$REG"
   mv "$tmp" "$REG"
+  echo; echo "правила tailscale зараз:"; tailscale serve status
 }
 
 case "${1:-start}" in
@@ -92,6 +94,9 @@ case "${1:-start}" in
   stop)           stop "${2:?потрібен порт або all}" ;;
   expose)         tailscale serve --bg --https="${2:?потрібен порт}" "localhost:${2}" >/dev/null
                   echo "→ https://$(host):${2}" ;;
+  reset)          printf 'Зняти ВСІ правила tailscale serve? [y/N] '; read -r a
+                  case "$a" in y|Y) tailscale serve reset; : >"$REG"; echo "готово" ;;
+                               *) echo "скасовано" ;; esac ;;
   off)            tailscale serve --https="${2:?потрібен порт}" off >/dev/null; echo "знято ${2}" ;;
   help|-h|--help) usage ;;
   *)              usage; exit 1 ;;
