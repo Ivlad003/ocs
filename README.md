@@ -7,7 +7,7 @@ inside your own Tailscale tailnet. One script, no dependencies.
 
 ```
 ocs [dir]             run the current folder (or the given one), pick a port
-ocs pick              browse OCS_ROOT with subfolder navigation, pick a port
+ocs pick              browse from the current folder, pick a port
 ocs ls                what is running right now
 ocs stop <port|all>   stop an instance
 ocs term [font]       ttyd web terminal (font 25, port 7681 by default)
@@ -20,7 +20,7 @@ ocs help              this help
 ```bash
 ocs                   # dashboard for the current folder — no picker
 ocs ~/projects/demo   # dashboard for the given folder
-ocs pick              # browse: numbers go deeper, . selects, .. goes up
+ocs pick              # browse from the current folder: numbers go deeper, . selects, .. goes up
 ocs term 30           # a terminal alongside, font size 30
 ocs term 30 7690      # same, on a port of your choice
 ocs expose 8080       # publish a third-party service
@@ -119,7 +119,7 @@ Two environment variables, no config file:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `OCS_ROOT` | `~/Documents` | browse start folder for `ocs pick` |
+| `OCS_ROOT` | `~/Documents` | navigation boundary for `ocs pick` when launched inside it; `ocs <name>` looks up folders here |
 | `OCS_PASS` | empty | password for the opencode web UI |
 
 Worth pinning in `~/.zshrc`:

@@ -113,12 +113,17 @@ function Get-FreePort([int]$From) {
 }
 
 function Invoke-Picker {
-  # інтерактивний браузер підпапок: номер — углиб, .. — угору, . або Enter — вибрати
+  # інтерактивний браузер підпапок: старт — поточна тека, номер — углиб, .. — угору, . або Enter — вибрати
   if (-not (Test-Path $Root -PathType Container)) { throw "Немає теки $Root (OCS_ROOT)" }
   $top = (Resolve-Path $Root).Path
   $cur = (Get-Location).Path
-  if (-not ($cur -eq $top -or $cur.StartsWith($top + [IO.Path]::DirectorySeparatorChar))) {
-    $cur = $top
+  $sep = [IO.Path]::DirectorySeparatorChar
+  if ($cur -eq $top -or $cur.StartsWith($top + $sep)) {
+    # у межах OCS_ROOT — старт тут, межа ROOT
+  } elseif ($cur -eq $RealHome -or $cur.StartsWith($RealHome + $sep)) {
+    $top = $RealHome   # поза ROOT, але вдома — межа HOME
+  } else {
+    $top = $cur        # інакше старт і межа — місце запуску
   }
   while ($true) {
     $dirs = @(Get-ChildItem -Path $cur -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
@@ -152,7 +157,7 @@ function Show-Usage {
 ocs — кілька opencode web на різних портах + публікація в tailnet
 
   ocs [тека]          запустити поточну теку (або вказану), вибрати порт
-  ocs pick            вибір теки з навігацією підпапками, вибрати порт
+  ocs pick            вибір теки з навігацією (старт — поточна тека)
   ocs ls                що працює зараз
   ocs stop <порт|all>   зупинити інстанс
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
