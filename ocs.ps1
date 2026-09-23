@@ -253,7 +253,18 @@ function Start-Instance {
   & (Get-Ts) serve --bg --https=$port "localhost:$port" | Out-Null
   Add-Content $Reg "$port`t$($proc.Id)`t$dir"
   "→ https://$(Get-TsHost):$port"
-  if ($codeLine) { '  код: ' + $codeLine.Line.Substring('server password '.Length) }
+  if ($codeLine) {
+    $code = $codeLine.Line.Substring('server password '.Length)
+    '  код: ' + $code
+    # лінк з автоматичним логіном: /connect#<base64url JSON> — формат opencode pair
+    $url = 'https://' + (Get-TsHost) + ':' + $port
+    $json = '{"urls":["' + $url + '"],"username":"opencode","password":"' + $code + '"}'
+    $payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json)).TrimEnd('=').Replace('+','-').Replace('/','_')
+    '  лінк: ' + $url + '/connect#' + $payload
+    if (Get-Command qrencode -ErrorAction SilentlyContinue) {
+      & qrencode -t ANSIUTF8 ($url + '/connect#' + $payload)
+    }
+  }
 }
 
 function Start-Term([int]$FontSize, [int]$Port) {

@@ -139,7 +139,10 @@ export OCS_ROOT=~/Documents/pet_project
 4. The registry of running instances lives in `~/.ocs`; logs go to `.ocs.log`
    inside each project folder.
 5. opencode v2 always generates a server password. `ocs` prints it at startup
-   as `код: …`; it is also stored in the project's `.ocs.log`.
+   as `код: …`, plus a one-click link (`/connect#…`, the same format as
+   `opencode pair`) that logs the browser in automatically — and a QR code of
+   it, if `qrencode` is installed. The password is also in the project's
+   `.ocs.log`.
 
 ## Web terminal alongside
 

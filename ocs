@@ -171,7 +171,22 @@ start() {
     [ -n "$code" ] && break
     sleep 1
   done
-  [ -n "$code" ] && echo "  код: $code"
+  if [ -n "$code" ]; then
+    echo "  код: $code"
+    # лінк з автоматичним логіном: /connect#<base64url JSON> — формат opencode pair
+    local url payload
+    url="https://$(host):$p"
+    payload="$(printf '{"urls":["%s"],"username":"opencode","password":"%s"}' "$url" "$code" \
+      | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '=')"
+    echo "  лінк: $url/connect#$payload"
+    if command -v qrencode >/dev/null 2>&1; then
+      qrencode -t ANSIUTF8 "$url/connect#$payload"
+    elif [ "$(uname -s)" = Darwin ]; then
+      echo "  (немає qrencode — QR не покажу: brew install qrencode)"
+    else
+      echo "  (немає qrencode — QR не покажу: sudo apt install qrencode)"
+    fi
+  fi
 }
 
 term() {
