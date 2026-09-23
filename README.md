@@ -80,8 +80,17 @@ export OCS_PASS='...'
 
 ```bash
 brew install ttyd
-ttyd -i lo0 -p 7681 -W tmux new -A -s main
-ocs expose 7681
+ocs term        # шрифт 25, порт 7681
+ocs term 30     # шрифт 30
+ocs stop 7681   # зупинити
+```
+
+Під капотом:
+
+```bash
+ttyd -i lo0 -p 7681 -W -t fontSize=25 -t lineHeight=1.2 -t scrollback=5000 \
+  tmux new -A -s term
+tailscale serve --bg --https=7681 localhost:7681
 ```
 
 `-W` обов'язковий (без нього термінал read-only), `-i lo0` теж, якщо порт

@@ -17,6 +17,7 @@ ocs — кілька opencode web на різних портах + публік�
   ocs                   вибрати теку зі списку, вибрати порт, запустити
   ocs ls                що працює зараз
   ocs stop <порт|all>   зупинити інстанс
+  ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
   ocs off <порт>        прибрати прокинутий порт
   ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
@@ -28,6 +29,8 @@ ocs — кілька opencode web на різних портах + публік�
 
 Приклад:
   OCS_ROOT=~/Documents/pet_project ocs
+  ocs term               # термінал, шрифт 25
+  ocs term 30            # те саме, шрифт 30
   ocs expose 8080        # Open WebUI, Olla тощо
   ocs stop all
 TXT
@@ -62,6 +65,26 @@ start() {
   echo "→ https://$(host):$p"
 }
 
+term() {
+  local fs="${1:-25}" p="${2:-7681}" lo=lo
+  [ "$(uname -s)" = Darwin ] && lo=lo0
+  command -v ttyd >/dev/null 2>&1 || { echo "ttyd не знайдено — brew install ttyd"; exit 1; }
+  while ! free "$p"; do p=$((p+1)); done
+
+  # -i lo0: tailscale serve сам слухає цей порт на тайнет-адресі
+  # без -c: Basic Auth ламає websocket-апгрейд, периметр — тайнет
+  nohup ttyd -i "$lo" -p "$p" -W \
+    -t fontSize="$fs" -t lineHeight=1.2 -t scrollback=5000 \
+    tmux new -A -s term >"$HOME/.ocs-term.log" 2>&1 &
+  local pid=$!
+  sleep 1
+  kill -0 "$pid" 2>/dev/null || { echo "ttyd не піднявся:"; tail -n 5 "$HOME/.ocs-term.log"; exit 1; }
+
+  tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
+  printf '%s\t%s\t%s\n' "$p" "$pid" "ttyd" >>"$REG"
+  echo "→ https://$(host):$p  (шрифт $fs)"
+}
+
 ls_() {
   local p pid dir
   while IFS=$'\t' read -r p pid dir; do
@@ -91,6 +114,7 @@ stop() {
 case "${1:-start}" in
   start)          start ;;
   ls)             ls_ ;;
+  term)           term "${2:-}" "${3:-}" ;;
   stop)           stop "${2:?потрібен порт або all}" ;;
   expose)         tailscale serve --bg --https="${2:?потрібен порт}" "localhost:${2}" >/dev/null
                   echo "→ https://$(host):${2}" ;;
