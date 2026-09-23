@@ -76,6 +76,17 @@ missing() {
 host() { tailscale status --json | sed -n 's/.*"DNSName": *"\([^"]*\)\..*/\1/p' | head -1; }
 free() { ! lsof -i :"$1" >/dev/null 2>&1; }
 
+qr() {
+  # QR-код лінка в термінал; без qrencode — підказка як встановити
+  if command -v qrencode >/dev/null 2>&1; then
+    qrencode -t ANSIUTF8 "$1"
+  elif [ "$(uname -s)" = Darwin ]; then
+    echo "  (немає qrencode — QR не покажу: brew install qrencode)"
+  else
+    echo "  (немає qrencode — QR не покажу: sudo apt install qrencode)"
+  fi
+}
+
 pick() {
   # інтерактивний браузер підпапок: старт — поточна тека, номер — углиб, .. — угору, . або Enter — вибрати
   local top cur dirs=() i choice d
@@ -179,13 +190,7 @@ start() {
     payload="$(printf '{"urls":["%s"],"username":"opencode","password":"%s"}' "$url" "$code" \
       | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '=')"
     echo "  лінк: $url/connect#$payload"
-    if command -v qrencode >/dev/null 2>&1; then
-      qrencode -t ANSIUTF8 "$url/connect#$payload"
-    elif [ "$(uname -s)" = Darwin ]; then
-      echo "  (немає qrencode — QR не покажу: brew install qrencode)"
-    else
-      echo "  (немає qrencode — QR не покажу: sudo apt install qrencode)"
-    fi
+    qr "$url/connect#$payload"
   fi
 }
 
@@ -263,7 +268,9 @@ case "${1:-start}" in
   term)           term "${2:-}" "${3:-}" ;;
   stop)           stop "${2:?потрібен порт або all}" ;;
   expose)         tailscale serve --bg --https="${2:?потрібен порт}" "localhost:${2}" >/dev/null
-                  echo "→ https://$(host):${2}" ;;
+                  url="https://$(host):${2}"
+                  echo "→ $url"
+                  qr "$url" ;;
   reset)          printf 'Зняти ВСІ правила tailscale serve? [y/N] '; read -r a
                   case "$a" in y|Y) tailscale serve reset; : >"$REG"; echo "готово" ;;
                                *) echo "скасовано" ;; esac ;;

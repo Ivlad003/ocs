@@ -331,7 +331,9 @@ switch ($Cmd) {
   'expose' {
     if (-not $A1) { throw 'потрібен порт' }
     & (Get-Ts) serve --bg --https=$A1 "localhost:$A1" | Out-Null
-    "→ https://$(Get-TsHost):$A1"
+    $url = 'https://' + (Get-TsHost) + ':' + $A1
+    "→ $url"
+    if (Get-Command qrencode -ErrorAction SilentlyContinue) { & qrencode -t ANSIUTF8 $url }
   }
   'off'    {
     if (-not $A1) { throw 'потрібен порт' }
