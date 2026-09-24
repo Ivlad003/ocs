@@ -12,6 +12,7 @@ ocs ls                what is running right now
 ocs stop <port|all>   stop an instance
 ocs term [font]       ttyd web terminal (font 25, port 7681 by default)
 ocs expose <port>     publish any local port to the tailnet
+ocs funnel <port>     publish a local port to the internet (Funnel)
 ocs off <port>        remove a published port
 ocs reset             drop ALL tailscale serve rules and clear the registry
 ocs help              this help
@@ -24,6 +25,7 @@ ocs pick              # browse from the current folder: numbers go deeper, . sel
 ocs term 30           # a terminal alongside, font size 30 — URL + QR
 ocs term 30 7690      # same, on a port of your choice
 ocs expose 8080       # publish a third-party service — prints URL + QR
+ocs funnel 4096       # publish port 4096 to the whole internet
 ocs stop all          # shut down everything ocs started
 ```
 
@@ -105,6 +107,11 @@ config but no certificate is issued:
 [login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns) →
 MagicDNS on → **Enable HTTPS**
 
+The scripts use the Tailscale 1.52+ CLI syntax (`tailscale serve` /
+`tailscale funnel`), so keep the client up to date. `ocs funnel` has one more
+one-off requirement — the `funnel` node attribute, see
+[Publishing to the internet](#publishing-to-the-internet-funnel).
+
 ## Install
 
 ### Option 1 — symlink (recommended)
@@ -155,7 +162,8 @@ export OCS_ROOT=~/Documents/pet_project
    real, so opencode keeps its config and sessions.
 2. The server listens on `127.0.0.1` only — nothing is exposed to the LAN.
 3. `tailscale serve --bg --https=<port> localhost:<port>` publishes it inside
-   the tailnet with a valid TLS certificate.
+   the tailnet with a valid TLS certificate; public exposure is deliberate and
+   only via `ocs funnel` (`tailscale funnel`, see below).
 4. The registry of running instances lives in `~/.ocs`; logs go to `.ocs.log`
    inside each project folder.
 5. opencode v2 always generates a server password. `ocs` prints it at startup
@@ -163,6 +171,29 @@ export OCS_ROOT=~/Documents/pet_project
    `opencode pair`) that logs the browser in automatically — and a QR code of
    it, if `qrencode` is installed. The password is also in the project's
    `.ocs.log`.
+
+## Publishing to the internet (funnel)
+
+`tailscale serve` publishes inside the tailnet; `ocs funnel` publishes to the
+whole internet through
+[Tailscale Funnel](https://tailscale.com/docs/reference/tailscale-cli/funnel):
+
+```bash
+ocs funnel 4096      # asks for a funnel port, defaults to 443
+```
+
+- Funnel ports are limited to **443, 8443 and 10000** — `ocs` asks which one
+  to use (default `443`). On port 443 the URL has no port part.
+- One-off: the tailnet must grant the `funnel` node attribute
+  ([login.tailscale.com/admin/acls](https://login.tailscale.com/admin/acls) →
+  `nodeAttrs: [{"target": ["*"], "attr": ["funnel"]}]`) and have HTTPS
+  enabled. `ocs funnel` checks both and prints instructions instead of
+  hanging in the interactive `tailscale funnel` flow.
+- Remove a publication with `ocs off <funnel-port>` (e.g. `ocs off 443`).
+  Funnel publishes are not tracked in the registry — same as `expose`.
+- opencode instances keep their server password, but anything you funnel is
+  reachable by the entire internet: only funnel services you would publish
+  publicly anyway.
 
 ## Web terminal alongside
 

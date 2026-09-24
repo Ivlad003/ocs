@@ -161,6 +161,7 @@ ocs — кілька opencode web на різних портах + публік�
   ocs stop <порт|all>   зупинити інстанс
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
+  ocs funnel <порт>     опублікувати локальний порт в інтернет (Funnel)
   ocs off <порт>        прибрати прокинутий порт
   ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
   ocs help              ця довідка
@@ -171,6 +172,7 @@ ocs — кілька opencode web на різних портах + публік�
 Приклад:
   $env:OCS_ROOT = "$HOME\projects"; ocs
   ocs term 30
+  ocs funnel 4096        # опублікувати порт 4096 для всього інтернету
   ocs stop all
 '@
 }
@@ -291,6 +293,36 @@ function Start-Term([int]$FontSize, [int]$Port) {
   if (Get-Command qrencode -ErrorAction SilentlyContinue) { & qrencode -t ANSIUTF8 $url }
 }
 
+function Start-Funnel([int]$LocalPort) {
+  # публікація локального порту в інтернет: tailscale funnel (CLI 1.52+)
+  # дозволені funnel-порти — лише 443/8443/10000; зняти — ocs off <funnel-порт>
+  $caps = @((& (Get-Ts) status --json | ConvertFrom-Json).Self.Capabilities)
+  # без можливостей funnel/HTTPS tailscale funnel висне в інтерактивному
+  # воркфлоу ввімкнення фічі — перевіряємо заздалегідь і кажемо по-людськи
+  if ('funnel' -notin $caps) {
+    Write-Host 'Funnel не увімкнений для цього тайнету.' -ForegroundColor Red
+    Write-Host ''
+    Write-Host '  увімкнути: https://login.tailscale.com/admin/acls'
+    Write-Host '             nodeAttrs: [{target: ["*"], attr: ["funnel"]}]'
+    Write-Host '  доки:      https://tailscale.com/docs/reference/tailscale-cli/funnel'
+    Write-Host ''
+    exit 1
+  }
+  if ('https' -notin $caps) {
+    Write-Host 'HTTPS не увімкнений для тайнету:' -ForegroundColor Red
+    Write-Host '  https://login.tailscale.com/admin/dns → Enable HTTPS'
+    exit 1
+  }
+  $x = Read-Host 'Funnel-порт [443] (443|8443|10000)'
+  $fp = if ($x) { [int]$x } else { 443 }
+  if ($fp -notin 443, 8443, 10000) { throw 'дозволені лише 443, 8443, 10000' }
+
+  & (Get-Ts) funnel --bg --https=$fp "localhost:$LocalPort" | Out-Null
+  $url = if ($fp -eq 443) { 'https://' + (Get-TsHost) } else { 'https://' + (Get-TsHost) + ':' + $fp }
+  "→ $url  (увесь інтернет ← localhost:$LocalPort)"
+  if (Get-Command qrencode -ErrorAction SilentlyContinue) { & qrencode -t ANSIUTF8 $url }
+}
+
 function Show-List {
   $h = Get-TsHost
   foreach ($r in Read-Registry) {
@@ -308,7 +340,7 @@ function Stop-Instance([string]$Key) {
   foreach ($r in Read-Registry) {
     if ($Key -eq 'all' -or $Key -eq "$($r.Port)") {
       Stop-Process -Id $r.Pid -Force -ErrorAction SilentlyContinue
-      & (Get-Ts) serve --https=$($r.Port) off 2>$null | Out-Null
+      & (Get-Ts) serve --yes --https=$($r.Port) off 2>$null | Out-Null
       "зупинено $($r.Port)"
     } else {
       $keep += "$($r.Port)`t$($r.Pid)`t$($r.Dir)"
@@ -337,9 +369,13 @@ switch ($Cmd) {
     "→ $url"
     if (Get-Command qrencode -ErrorAction SilentlyContinue) { & qrencode -t ANSIUTF8 $url }
   }
+  'funnel' {
+    if (-not $A1) { throw 'потрібен локальний порт: ocs funnel <порт>' }
+    Start-Funnel ([int]$A1)
+  }
   'off'    {
     if (-not $A1) { throw 'потрібен порт' }
-    & (Get-Ts) serve --https=$A1 off | Out-Null
+    & (Get-Ts) serve --yes --https=$A1 off | Out-Null
     "знято $A1"
   }
   'reset'  {

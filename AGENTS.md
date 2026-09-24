@@ -40,8 +40,11 @@ them as features):
 - `HOME` (and `USERPROFILE` on Windows) is overridden to the project dir so the
   web UI project picker can't see the rest of the disk; `XDG_CONFIG_HOME` /
   `XDG_DATA_HOME` are pinned to the real values so opencode keeps its config.
-- opencode binds `127.0.0.1` only; exposure is exclusively via
-  `tailscale serve --bg --https=<port> localhost:<port>`.
+- opencode binds `127.0.0.1` only; tailnet exposure is via
+  `tailscale serve --bg --https=<port> localhost:<port>`. Public exposure is
+  deliberate and only via `ocs funnel` → `tailscale funnel --bg
+  --https=<port> localhost:<port>` (funnel ports 443/8443/10000; needs the
+  `funnel` node attr + HTTPS). Both target the Tailscale 1.52+ CLI.
 - opencode v2 always generates a server password — it **cannot be disabled**
   (empty env just triggers a fresh random one). `ocs` reads the
   `server password …` line from the instance log (retry up to 5 s) and prints
@@ -64,6 +67,13 @@ them as features):
   locally; keep them minimal and test on Windows.
 - The Bash script runs `command -v tailscale` *before* dispatch, so even
   `ocs help` requires `tailscale` on PATH; `stop` additionally uses `lsof`.
+- The scripts target the Tailscale 1.52+ CLI. `tailscale serve status --json`
+  puts every published port (serve, expose, funnel) under a `"TCP"` map keyed
+  `"<port>"` — that is what bash `off` greps for (`"<port>":`). `off`/`stop`
+  pass `--yes` so a multi-mount port can't hang on an interactive prompt.
+  `ocs funnel` pre-checks the `funnel`/`https` capabilities from
+  `tailscale status --json` because otherwise `tailscale funnel` blocks in the
+  interactive feature-enable flow when the tailnet lacks them.
 - Functional testing needs `tailscale` (logged into a tailnet with HTTPS
   enabled) and `opencode` installed; `ocs term` also needs `ttyd`. The scripts
   print install instructions for missing deps instead of failing bare.

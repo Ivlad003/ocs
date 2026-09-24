@@ -19,6 +19,7 @@ ocs — кілька opencode web на різних портах + публік�
   ocs stop <порт|all>   зупинити інстанс
   ocs term [шрифт]      веб-термінал ttyd (типово 25, порт 7681)
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
+  ocs funnel <порт>     опублікувати локальний порт в інтернет (Funnel)
   ocs off <порт>        прибрати прокинутий порт
   ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
   ocs help              ця довідка
@@ -31,6 +32,7 @@ ocs — кілька opencode web на різних портах + публік�
   ocs term               # термінал, шрифт 25
   ocs term 30            # те саме, шрифт 30
   ocs expose 8080        # Open WebUI, Olla тощо
+  ocs funnel 4096        # опублікувати порт 4096 для всього інтернету
   ocs stop all
 TXT
 }
@@ -237,7 +239,7 @@ stop() {
       for lp in $(lsof -tiTCP@127.0.0.1:"$p" 2>/dev/null || true); do
         kill "$lp" 2>/dev/null || true           # добити реального слухача порту
       done
-      tailscale serve --https="$p" off >/dev/null 2>&1 || true
+      tailscale serve --yes --https="$p" off >/dev/null 2>&1 || true
       echo "зупинено $p"
     else
       printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$tmp"
@@ -248,19 +250,48 @@ stop() {
 }
 
 off() {
-  # зняти публікацію порту; якщо її немає — сказати по-людськи, а не падати
+  # зняти публікацію порту; якщо її немає — сказати по-людськи, а не падати.
+  # CLI 1.52+: status --json кладе кожен опублікований порт у "TCP" → "<порт>":
+  # (serve, funnel і expose потрапляють туди однаково), тож grep по ключу порту
   local p="$1"
   if tailscale serve status --json 2>/dev/null | grep -q "\"$p\":"; then
-    tailscale serve --https="$p" off >/dev/null 2>&1 || true
+    tailscale serve --yes --https="$p" off >/dev/null 2>&1 || true
     echo "знято $p"
   else
     echo "порт $p не опублікований"
   fi
 }
 
+funnel() {
+  # публікація локального порту в інтернет: tailscale funnel (CLI 1.52+)
+  # дозволені funnel-порти — лише 443/8443/10000; зняти — ocs off <funnel-порт>
+  local lp="$1" fp x caps url
+  caps="$(tailscale status --json 2>/dev/null || true)"
+  # без можливостей funnel/HTTPS tailscale funnel висне в інтерактивному
+  # воркфлоу ввімкнення фічі — перевіряємо заздалегідь і кажемо по-людськи
+  if ! printf '%s' "$caps" | grep -q '"funnel"'; then
+    echo "Funnel не увімкнений для цього тайнету."; echo
+    echo "  увімкнути: https://login.tailscale.com/admin/acls"
+    echo '             nodeAttrs: [{target: ["*"], attr: ["funnel"]}]'
+    echo "  доки:      https://tailscale.com/docs/reference/tailscale-cli/funnel"
+    exit 1
+  fi
+  if ! printf '%s' "$caps" | grep -q '"https"'; then
+    echo "HTTPS не увімкнений для тайнету:"
+    echo "  https://login.tailscale.com/admin/dns → Enable HTTPS"
+    exit 1
+  fi
+  printf 'Funnel-порт [443] (443|8443|10000): '; read -r x; fp="${x:-443}"
+  case "$fp" in 443|8443|10000) : ;; *) echo "дозволені лише 443, 8443, 10000"; exit 1 ;; esac
+  tailscale funnel --bg --https="$fp" "localhost:$lp" >/dev/null
+  if [ "$fp" = 443 ]; then url="https://$(host)"; else url="https://$(host):$fp"; fi
+  echo "→ $url  (увесь інтернет ← localhost:$lp)"
+  qr "$url"
+}
+
 command -v tailscale >/dev/null 2>&1 || missing tailscale
 case "${1:-start}" in
-  ls|stop|expose|off|reset|term|help|-h|--help) : ;;
+  ls|stop|expose|funnel|off|reset|term|help|-h|--help) : ;;
   *) command -v opencode >/dev/null 2>&1 || missing opencode ;;
 esac
 
@@ -274,6 +305,7 @@ case "${1:-start}" in
                   url="https://$(host):${2}"
                   echo "→ $url"
                   qr "$url" ;;
+  funnel)         funnel "${2:?потрібен локальний порт}" ;;
   reset)          printf 'Зняти ВСІ правила tailscale serve? [y/N] '; read -r a
                   case "$a" in y|Y) tailscale serve reset; : >"$REG"; echo "готово" ;;
                                *) echo "скасовано" ;; esac ;;
