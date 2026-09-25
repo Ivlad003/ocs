@@ -14,7 +14,7 @@ ocs term [font]       ttyd web terminal (font 25, port 7681 by default)
 ocs expose <port>     publish any local port to the tailnet
 ocs funnel <port>     publish a local port to the internet (Funnel)
 ocs off <port>        remove a published port
-ocs reset             drop ALL tailscale serve rules and clear the registry
+ocs reset             stop EVERYTHING, drop tailscale serve rules, clear the registry
 ocs help              this help
 ```
 
@@ -114,7 +114,24 @@ one-off requirement — the `funnel` node attribute, see
 
 ## Install
 
-### Option 1 — symlink (recommended)
+### One-liner
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ivlad003/ocs/main/install.sh | sh
+```
+
+Drops `ocs` into `~/.local/bin` (override with `OCS_INSTALL_DIR`, pick a
+branch/tag with `OCS_REF`) and tells you if that directory is missing from
+`PATH`. Re-run it to update. Windows (PowerShell 7):
+
+```powershell
+irm https://raw.githubusercontent.com/Ivlad003/ocs/main/install.ps1 | iex
+```
+
+This puts `ocs.ps1` into `~\.ocs-bin` and adds it to the user `PATH`.
+
+### From a clone — symlink
+
 
 The repository stays the source of truth, so `git pull` updates the command.
 
@@ -124,7 +141,7 @@ chmod +x ~/Documents/pet_project/ocs/ocs
 sudo ln -sf ~/Documents/pet_project/ocs/ocs /usr/local/bin/ocs
 ```
 
-### Option 2 — your own bin directory, no sudo
+### From a clone — your own bin directory, no sudo
 
 ```bash
 mkdir -p ~/bin
@@ -142,11 +159,18 @@ ocs help
 
 ## Configuration
 
-One environment variable, no config file:
+Environment variables, no config file:
 
 | Variable | Default | What it does |
 |---|---|---|
 | `OCS_ROOT` | `~/Documents` | navigation boundary for `ocs pick` when launched inside it; `ocs <name>` looks up folders here |
+| `OCS_AUTO` | `1` | autonomous mode: the agent doesn't ask for permissions (`0` — ask as usual) |
+
+Autonomous mode is the server-side equivalent of `opencode --auto` (`serve` /
+`web` have no such flag): ocs sets `OPENCODE_PERMISSION='{"*":"allow","external_directory":"ask"}'`,
+so everything is allowed except what your config explicitly denies, and
+touching files outside the project folder still asks. `OCS_AUTO=0 ocs` keeps
+your own permission config.
 
 Worth pinning in `~/.zshrc`:
 

@@ -7,6 +7,9 @@ ROOT="${OCS_ROOT:-$HOME/Documents}"   # де шукати проєкти
 REG="$HOME/.ocs"                      # реєстр запущеного
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DAT="${XDG_DATA_HOME:-$HOME/.local/share}"
+# автономний режим — аналог `opencode --auto` (у serve такого прапорця немає):
+# усе дозволено, крім явно заборонених у конфігу; вихід за теку проєкту — з питанням
+AUTO_PERM='{"*":"allow","external_directory":"ask"}'
 touch "$REG"
 
 usage() {
@@ -21,11 +24,12 @@ ocs — кілька opencode web на різних портах + публік�
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
   ocs funnel <порт>     опублікувати локальний порт в інтернет (Funnel)
   ocs off <порт>        прибрати прокинутий порт
-  ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
+  ocs reset             зупинити ВСЕ, зняти правила tailscale serve, очистити реєстр
   ocs help              ця довідка
 
 Змінні оточення:
   OCS_ROOT   де шукати проєкти            (типово ~/Documents)
+  OCS_AUTO   автономний режим: агент не питає дозволів (типово 1, 0 — вимкнути)
 
 Приклад:
   OCS_ROOT=~/Documents/pet_project ocs
@@ -77,6 +81,14 @@ missing() {
 
 host() { tailscale status --json | sed -n 's/.*"DNSName": *"\([^"]*\)\..*/\1/p' | head -1; }
 free() { ! lsof -i :"$1" >/dev/null 2>&1; }
+
+# pid з реєстру можна вбивати лише якщо це справді наш opencode/ttyd:
+# pid 0/1/порожній або перевикористаний іншим процесом — ні (kill -- -1 валить усю сесію)
+ours() {
+  case "${1:-}" in ''|*[!0-9]*|0|1) return 1 ;; esac
+  [ "$1" != "$$" ] || return 1
+  ps -o command= -p "$1" 2>/dev/null | grep -qE '(^|/)(opencode|ttyd)( |$)'
+}
 
 qr() {
   # QR-код лінка в термінал; без qrencode — підказка як встановити
@@ -162,8 +174,10 @@ start() {
   free "$p" || { echo "Порт $p зайнятий"; exit 1; }
 
   # HOME=$dir тримає пікер проєктів усередині теки, XDG_* лишають конфіг на місці
+  local perm="${OPENCODE_PERMISSION:-}"
+  [ "${OCS_AUTO:-1}" = 0 ] || perm="$AUTO_PERM"
   ( cd "$dir" && HOME="$dir" XDG_CONFIG_HOME="$CFG" XDG_DATA_HOME="$DAT" \
-      nohup opencode serve --hostname 127.0.0.1 --port "$p" \
+      OPENCODE_PERMISSION="$perm" nohup opencode serve --hostname 127.0.0.1 --port "$p" \
       >"$dir/.ocs.log" 2>&1 & echo $! >"$REG.pid" )
   sleep 1
 
@@ -172,10 +186,12 @@ start() {
   pid="$(lsof -tiTCP@127.0.0.1:"$p" 2>/dev/null | head -1 || true)"
   [ -n "$pid" ] || pid="$(cat "$REG.pid")"
 
-  tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
+  # спершу в реєстр: якщо tailscale serve впаде (set -e), процес не лишиться сиротою
   printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$REG"
   rm -f "$REG.pid"
+  tailscale serve --bg --https="$p" "localhost:$p" >/dev/null
   echo "→ https://$(host):$p"
+  [ "${OCS_AUTO:-1}" = 0 ] || echo "  режим: автономний (OCS_AUTO=0 — з питаннями)"
 
   # opencode v2 генерує пароль сервера сам і пише його в лог — показуємо його
   local code i
@@ -193,6 +209,9 @@ start() {
       | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '=')"
     echo "  лінк: $url/connect#$payload"
     qr "$url/connect#$payload"
+  else
+    # opencode 1.x без OPENCODE_SERVER_PASSWORD пароля не генерує — QR простого лінка
+    qr "https://$(host):$p"
   fi
 }
 
@@ -229,23 +248,36 @@ ls_() {
 }
 
 stop() {
-  local key="$1" tmp p pid dir
+  local key="$1" tmp p pid dir seen=" "
   tmp=$(mktemp)
   while IFS=$'\t' read -r p pid dir; do
     [ -n "${p:-}" ] || continue
     if [ "$key" = all ] || [ "$key" = "$p" ]; then
-      kill "$pid" 2>/dev/null || true
-      kill -- -"$pid" 2>/dev/null || true        # уся група процесів (якщо є)
+      ours "$pid" && kill "$pid" 2>/dev/null || true
       for lp in $(lsof -tiTCP@127.0.0.1:"$p" 2>/dev/null || true); do
-        kill "$lp" 2>/dev/null || true           # добити реального слухача порту
+        ours "$lp" && kill "$lp" 2>/dev/null || true   # добити реального слухача порту
       done
       tailscale serve --yes --https="$p" off >/dev/null 2>&1 || true
+      seen="$seen$p "
       echo "зупинено $p"
     else
       printf '%s\t%s\t%s\n' "$p" "$pid" "$dir" >>"$tmp"
     fi
   done <"$REG"
   mv "$tmp" "$REG"
+
+  # сироти: інстанси ocs, що випали з реєстру (reset, старі версії, збій старту)
+  local op
+  for pid in $(pgrep -f 'opencode (serve|web) --hostname 127\.0\.0\.1 --port ' 2>/dev/null || true); do
+    op="$(ps -o command= -p "$pid" 2>/dev/null | sed -n 's/.*--port \([0-9]*\).*/\1/p')"
+    [ -n "$op" ] || continue
+    [ "$key" = all ] || [ "$key" = "$op" ] || continue
+    case "$seen" in *" $op "*) continue ;; esac
+    ours "$pid" || continue
+    kill "$pid" 2>/dev/null || true
+    tailscale serve --yes --https="$op" off >/dev/null 2>&1 || true
+    echo "зупинено $op (не було в реєстрі)"
+  done
   echo; echo "правила tailscale зараз:"; tailscale serve status
 }
 
@@ -306,8 +338,9 @@ case "${1:-start}" in
                   echo "→ $url"
                   qr "$url" ;;
   funnel)         funnel "${2:?потрібен локальний порт}" ;;
-  reset)          printf 'Зняти ВСІ правила tailscale serve? [y/N] '; read -r a
-                  case "$a" in y|Y) tailscale serve reset; : >"$REG"; echo "готово" ;;
+  reset)          printf 'Зупинити ВСІ інстанси й зняти ВСІ правила tailscale serve? [y/N] '; read -r a
+                  case "$a" in y|Y) stop all >/dev/null   # інакше процеси лишаться сиротами
+                                    tailscale serve reset; : >"$REG"; echo "готово" ;;
                                *) echo "скасовано" ;; esac ;;
   off)            off "${2:?потрібен порт}" ;;
   help|-h|--help) usage ;;

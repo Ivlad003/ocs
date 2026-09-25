@@ -163,11 +163,12 @@ ocs — кілька opencode web на різних портах + публік�
   ocs expose <порт>     прокинути будь-який локальний порт у tailnet
   ocs funnel <порт>     опублікувати локальний порт в інтернет (Funnel)
   ocs off <порт>        прибрати прокинутий порт
-  ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
+  ocs reset             зупинити ВСЕ, зняти правила tailscale serve, очистити реєстр
   ocs help              ця довідка
 
 Змінні оточення:
   OCS_ROOT   де шукати проєкти            (типово ~\Documents)
+  OCS_AUTO   автономний режим: агент не питає дозволів (типово 1, 0 — вимкнути)
 
 Приклад:
   $env:OCS_ROOT = "$HOME\projects"; ocs
@@ -225,11 +226,16 @@ function Start-Instance {
   $saved = @{
     HOME = $env:HOME; USERPROFILE = $env:USERPROFILE
     XDG_CONFIG_HOME = $env:XDG_CONFIG_HOME; XDG_DATA_HOME = $env:XDG_DATA_HOME
+    OPENCODE_PERMISSION = $env:OPENCODE_PERMISSION
   }
   $env:HOME = $dir
   $env:USERPROFILE = $dir
   $env:XDG_CONFIG_HOME = Join-Path $RealHome '.config'
   $env:XDG_DATA_HOME = Join-Path $RealHome '.local\share'
+  # автономний режим — аналог `opencode --auto` (у web такого прапорця немає):
+  # усе дозволено, крім явно заборонених у конфігу; вихід за теку проєкту — з питанням
+  $auto = $env:OCS_AUTO -ne '0'
+  if ($auto) { $env:OPENCODE_PERMISSION = '{"*":"allow","external_directory":"ask"}' }
 
   $log = Join-Path $LogDir "$(Split-Path $dir -Leaf)-$port.log"
   try {
@@ -252,9 +258,11 @@ function Start-Instance {
     Start-Sleep -Seconds 1
   }
 
-  & (Get-Ts) serve --bg --https=$port "localhost:$port" | Out-Null
+  # спершу в реєстр: якщо tailscale serve впаде, процес не лишиться сиротою
   Add-Content $Reg "$port`t$($proc.Id)`t$dir"
+  & (Get-Ts) serve --bg --https=$port "localhost:$port" | Out-Null
   "→ https://$(Get-TsHost):$port"
+  if ($auto) { '  режим: автономний (OCS_AUTO=0 — з питаннями)' }
   if ($codeLine) {
     $code = $codeLine.Line.Substring('server password '.Length)
     '  код: ' + $code
@@ -266,6 +274,9 @@ function Start-Instance {
     if (Get-Command qrencode -ErrorAction SilentlyContinue) {
       & qrencode -t ANSIUTF8 ($url + '/connect#' + $payload)
     }
+  } elseif (Get-Command qrencode -ErrorAction SilentlyContinue) {
+    # opencode 1.x без OPENCODE_SERVER_PASSWORD пароля не генерує — QR простого лінка
+    & qrencode -t ANSIUTF8 ('https://' + (Get-TsHost) + ':' + $port)
   }
 }
 
@@ -337,16 +348,35 @@ function Show-List {
 
 function Stop-Instance([string]$Key) {
   $keep = @()
+  $seen = @()
   foreach ($r in Read-Registry) {
     if ($Key -eq 'all' -or $Key -eq "$($r.Port)") {
-      Stop-Process -Id $r.Pid -Force -ErrorAction SilentlyContinue
+      # лише якщо pid досі наш opencode/ttyd, а не перевикористаний іншим процесом
+      $pr = Get-Process -Id $r.Pid -ErrorAction SilentlyContinue
+      if ($r.Pid -gt 4 -and $pr -and $pr.ProcessName -match '^(opencode|ttyd|node|bun)$') {
+        Stop-Process -Id $r.Pid -Force -ErrorAction SilentlyContinue
+      }
       & (Get-Ts) serve --yes --https=$($r.Port) off 2>$null | Out-Null
+      $seen += "$($r.Port)"
       "зупинено $($r.Port)"
     } else {
       $keep += "$($r.Port)`t$($r.Pid)`t$($r.Dir)"
     }
   }
   Set-Content $Reg ($keep -join "`n")
+
+  # сироти: інстанси ocs, що випали з реєстру (reset, старі версії, збій старту)
+  $orphans = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'opencode.*\b(web|serve) --hostname 127\.0\.0\.1 --port (\d+)' }
+  foreach ($o in $orphans) {
+    $null = $o.CommandLine -match '--port (\d+)'
+    $op = $Matches[1]
+    if (($Key -ne 'all' -and $Key -ne $op) -or ($op -in $seen)) { continue }
+    Stop-Process -Id $o.ProcessId -Force -ErrorAction SilentlyContinue
+    & (Get-Ts) serve --yes --https=$op off 2>$null | Out-Null
+    $seen += $op
+    "зупинено $op (не було в реєстрі)"
+  }
   ''
   'правила tailscale зараз:'
   & (Get-Ts) serve status
@@ -379,8 +409,11 @@ switch ($Cmd) {
     "знято $A1"
   }
   'reset'  {
-    $a = Read-Host 'Зняти ВСІ правила tailscale serve? [y/N]'
-    if ($a -in 'y', 'Y') { & (Get-Ts) serve reset; Set-Content $Reg ''; 'готово' }
+    $a = Read-Host 'Зупинити ВСІ інстанси й зняти ВСІ правила tailscale serve? [y/N]'
+    if ($a -in 'y', 'Y') {
+      Stop-Instance 'all' | Out-Null   # інакше процеси лишаться сиротами
+      & (Get-Ts) serve reset; Set-Content $Reg ''; 'готово'
+    }
     else { 'скасовано' }
   }
   default  {

@@ -14,7 +14,7 @@ ocs term [шрифт]      веб-термінал ttyd (типово 25, пор
 ocs expose <порт>     прокинути будь-який локальний порт у tailnet
 ocs funnel <порт>     опублікувати локальний порт в інтернет (Funnel)
 ocs off <порт>        прибрати прокинутий порт
-ocs reset             зняти ВСІ правила tailscale serve і очистити реєстр
+ocs reset             зупинити ВСЕ, зняти правила tailscale serve, очистити реєстр
 ocs help              довідка
 ```
 
@@ -114,7 +114,24 @@ MagicDNS увімкнути → **Enable HTTPS**
 
 ## Встановлення
 
-### Варіант 1 — символьне посилання (рекомендований)
+### Однією командою
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ivlad003/ocs/main/install.sh | sh
+```
+
+Кладе `ocs` у `~/.local/bin` (інша тека — `OCS_INSTALL_DIR`, гілка/тег —
+`OCS_REF`) і підкаже, якщо цієї теки немає в `PATH`. Повторний запуск —
+оновлення. Windows (PowerShell 7):
+
+```powershell
+irm https://raw.githubusercontent.com/Ivlad003/ocs/main/install.ps1 | iex
+```
+
+Кладе `ocs.ps1` у `~\.ocs-bin` і додає теку в `PATH` користувача.
+
+### З клону — символьне посилання
+
 
 Репозиторій лишається джерелом правди, `git pull` одразу оновлює команду.
 
@@ -124,7 +141,7 @@ chmod +x ~/Documents/pet_project/ocs/ocs
 sudo ln -sf ~/Documents/pet_project/ocs/ocs /usr/local/bin/ocs
 ```
 
-### Варіант 2 — власна тека в PATH, без sudo
+### З клону — власна тека в PATH, без sudo
 
 ```bash
 mkdir -p ~/bin
@@ -142,11 +159,18 @@ ocs help
 
 ## Налаштування
 
-Однією змінною оточення, файлу конфіга немає:
+Змінними оточення, файлу конфіга немає:
 
 | Змінна | Типово | Що робить |
 |---|---|---|
 | `OCS_ROOT` | `~/Documents` | межа навігації `ocs pick`, якщо його запущено всередині; `ocs <ім'я>` шукає теки тут |
+| `OCS_AUTO` | `1` | автономний режим: агент не питає дозволів (`0` — питати як зазвичай) |
+
+Автономний режим — серверний аналог `opencode --auto` (у `serve` / `web`
+такого прапорця немає): ocs ставить `OPENCODE_PERMISSION='{"*":"allow","external_directory":"ask"}'`,
+тож дозволено все, крім явно забороненого у твоєму конфігу, а доступ до файлів
+поза текою проєкту все одно з питанням. `OCS_AUTO=0 ocs` лишає твій конфіг
+дозволів як є.
 
 Зручно закріпити в `~/.zshrc`:
 

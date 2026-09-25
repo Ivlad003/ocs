@@ -7,6 +7,11 @@ straight to `origin/main`. Docs: `README.md` (EN, primary) and `README.uk.md`.
 
 ## Entry points
 
+- `install.sh` / `install.ps1` — one-liner installers
+  (`curl -fsSL https://raw.githubusercontent.com/Ivlad003/ocs/main/install.sh | sh`,
+  `irm …/install.ps1 | iex`). They fetch `ocs` / `ocs.ps1` from `main` on
+  GitHub, so a change only reaches installers once pushed.
+
 - `ocs` — Bash, Unix/macOS. The canonical implementation.
 - `ocs.ps1` — PowerShell 7, Windows. Port of the same commands but **lags behind
   the Bash script**. When changing one, mirror in the other unless it is a
@@ -34,6 +39,11 @@ them as features):
 - Registry `~/.ocs` is tab-separated plain text, one line per instance, fields
   `port`, `pid`, `dir`. `ls` filters dead PIDs; entries are removed only by
   `stop`/`reset`.
+- Never `kill` a registry pid blindly: it may be empty, `1`, or reused by an
+  unrelated process after reboot. Every kill in `stop` goes through `ours()`
+  (numeric, >1, command is `opencode`/`ttyd`). No process-group kills
+  (`kill -- -$pid`): with pid `1` that is `kill -1` and logs the user out.
+  `reset` = `stop all` + `tailscale serve reset`, so it relies on this too.
 
 ## How the server is isolated (don't regress)
 
@@ -58,6 +68,12 @@ them as features):
   WebSocket upgrade (browsers don't send Basic Auth on WS handshake). On
   macOS/BSD `-i lo0` is required to avoid colliding with tailscaled on an
   already-published port; Windows serves on a different port instead.
+- Autonomous mode (`OCS_AUTO`, default on) = `opencode --auto` for the server:
+  `serve`/`web` have no `--auto` flag (it only exists on `run`/TUI clients), so
+  ocs sets `OPENCODE_PERMISSION='{"*":"allow","external_directory":"ask"}'`
+  (deep-merged over the user config, explicit denies survive). Keep
+  `external_directory` at `ask` — `"*":"allow"` alone would let the agent
+  escape the project folder and defeat the `HOME` isolation above.
 - These are guardrails, not a sandbox — see "Limitations" in the READMEs.
 
 ## Verifying changes
